@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int        @id @default(autoincrement())
+  createdAt      DateTime   @default(now())
+  name           String?
+  email          String?    @unique
+  age            Int?
+  biologicalSex  String?
+  height         Int?
+  weight         Int?
+  activityLevel  String?
+  logs           FoodLog[]
+  goal           Goal?
+}
+
+model Goal {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique
+  user           User      @relation(fields: [userId], references: [id])
+  targetCalories Int?
+  targetProtein  Int?
+  targetCarbs    Int?
+  targetFat      Int?
+  macroSplit     String?
+  goalSettings   String?   // JSON string for goal type and pace
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model FoodLog {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  loggedAt  DateTime  @default(now())
+  day       DateTime
+  item      String
+  mealType  String?
+  quantity  Float?
+  unit      String?
+  calories  Int?
+  protein   Float?
+  carbs     Float?
+  fat       Float?
+  fiber     Float?
+  sugar     Float?
+  sodium    Float?
+  notes     String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, day])
+}

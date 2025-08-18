@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "activityLevel" TEXT;
+ALTER TABLE "User" ADD COLUMN "age" INTEGER;
+ALTER TABLE "User" ADD COLUMN "biologicalSex" TEXT;
+ALTER TABLE "User" ADD COLUMN "height" INTEGER;
+ALTER TABLE "User" ADD COLUMN "weight" INTEGER;

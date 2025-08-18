@@ -1,0 +1,21 @@
+import GoalsForm from "@/components/GoalsForm";
+import Goals from "@/components/Goals";
+
+export default function GoalsPage() {
+  return (
+    <div className="font-sans min-h-screen p-6 sm:p-10 flex flex-col items-center gap-6">
+      <div className="w-full max-w-5xl flex flex-col gap-6">
+        <GoalsForm />
+        <Goals />
+        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-6 border">
+          <h3 className="text-lg font-semibold mb-3">About Daily Calorie Targets</h3>
+          <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
+            Your daily calorie target comes from your Total Daily Energy Expenditure (TDEE) — an estimate of how many calories you burn each day. TDEE starts with your Basal Metabolic Rate (BMR), usually calculated using the Mifflin–St Jeor and Harris–Benedict equations, and then adjusts for your activity level. Eating at this level maintains your weight; eating less or more can help you lose or gain.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
