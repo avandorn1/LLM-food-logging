@@ -73,7 +73,7 @@ export default function Charts() {
   }
 
   return (
-    <div className="w-full max-w-4xl border rounded-lg p-4">
+    <div className="w-full border rounded-lg p-4">
       <div className="text-lg font-semibold mb-4">Intake vs Goals</div>
       {today ? (
         <>

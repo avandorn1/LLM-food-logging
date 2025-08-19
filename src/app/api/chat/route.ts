@@ -79,204 +79,16 @@ function getErrorMessage(error: unknown): string {
   }
 }
 
-// Build 2-3 food suggestions aligned to remaining macros/calories
+// Build food suggestions using OpenAI instead of hardcoded data
 function buildSuggestions(
   remaining: { calories: number; protein: number; carbs: number; fat: number },
   goals?: { targetCalories?: number; targetProtein?: number; targetCarbs?: number; targetFat?: number },
   excludeTitles?: Set<string>,
   preference?: string
 ) {
-  const caloriesLeft = remaining.calories;
-  const proteinLeft = remaining.protein;
-  const carbsLeft = remaining.carbs;
-  const fatLeft = remaining.fat;
-
-  const s = (title: string, c: number, p: number, carb: number, f: number) => ({ title, c, p, carb, f });
-
-  const lowCal = [
-    s("Greek yogurt (3/4 cup) + berries (1/2 cup)", 150, 15, 15, 2),
-    s("Egg whites scramble (6 egg whites) + spinach", 140, 24, 3, 1),
-    s("Cottage cheese (1/2 cup) + cucumber", 120, 14, 6, 3),
-  ];
-  const highProtein = [
-    s("Grilled chicken (4 oz) + baby carrots", 220, 32, 10, 5),
-    s("Tuna packet + whole-grain crackers (6)", 230, 22, 18, 7),
-    s("Egg white omelet (3 whites) + salsa", 170, 18, 4, 6),
-    s("Greek yogurt (1 cup) + protein granola (1/4 cup)", 280, 28, 28, 6),
-  ];
-  const highCarb = [
-    s("Banana + 2 tbsp peanut butter", 280, 8, 35, 13),
-    s("Oatmeal (1/2 cup dry) + whey (1/2 scoop)", 260, 14, 38, 5),
-    s("Whole-grain toast (2) + jam", 220, 6, 42, 3),
-  ];
-  const highFat = [
-    s("Avocado toast (1 slice, 1/2 avocado)", 240, 5, 22, 15),
-    s("Trail mix (1/4 cup)", 180, 5, 14, 12),
-    s("Cheese (1 oz) + apple", 180, 7, 19, 9),
-  ];
-  const balanced = [
-    s("Turkey wrap (3 oz turkey, tortilla, greens)", 300, 24, 28, 9),
-    s("Chicken salad (4 oz chicken, greens, vinaigrette)", 350, 32, 10, 18),
-    s("Quinoa bowl (1 cup quinoa, veggies)", 400, 14, 70, 8),
-    s("Greek yogurt parfait (yogurt, berries, granola)", 310, 24, 40, 10),
-  ];
-
-  // Tuna-specific options
-  const tunaOptions = [
-    s("Tuna salad sandwich (tuna, mayo, celery, bread)", 320, 28, 30, 12),
-    s("Tuna melt (tuna, cheese, bread, grilled)", 380, 32, 28, 18),
-    s("Tuna pasta salad (tuna, pasta, veggies, light dressing)", 420, 26, 52, 14),
-    s("Tuna and crackers (tuna packet + 8 crackers)", 280, 24, 24, 10),
-    s("Tuna lettuce wraps (tuna, lettuce, avocado)", 260, 26, 8, 16),
-  ];
-
-  // Chicken-specific options
-  const chickenOptions = [
-    s("Chicken breast with rice (4 oz chicken, 1/2 cup rice)", 380, 36, 45, 8),
-    s("Chicken stir-fry (4 oz chicken, mixed veggies, soy sauce)", 320, 32, 20, 12),
-    s("Chicken soup (chicken, broth, veggies, noodles)", 280, 24, 32, 8),
-    s("Chicken sandwich (4 oz chicken, bread, lettuce, tomato)", 340, 32, 36, 10),
-    s("Chicken and sweet potato (4 oz chicken, 1 medium potato)", 420, 36, 52, 12),
-  ];
-
-  // Fish-specific options
-  const fishOptions = [
-    s("Salmon fillet (4 oz) + steamed broccoli", 320, 28, 8, 20),
-    s("Cod with quinoa (4 oz cod, 1/2 cup quinoa)", 340, 32, 42, 8),
-    s("Shrimp stir-fry (4 oz shrimp, mixed veggies)", 240, 24, 16, 8),
-    s("Fish tacos (4 oz white fish, tortillas, slaw)", 360, 28, 32, 16),
-  ];
-
-  // Vegetarian options
-  const vegOptions = [
-    s("Hummus and pita (1/2 cup hummus, 2 pitas)", 380, 16, 52, 16),
-    s("Bean burrito (beans, rice, tortilla, cheese)", 420, 18, 68, 12),
-    s("Lentil soup (1 cup lentils, broth, veggies)", 280, 18, 48, 4),
-    s("Tofu stir-fry (4 oz tofu, mixed veggies, soy sauce)", 240, 16, 20, 12),
-  ];
-
-  // Light options
-  const lightOptions = [
-    s("Cucumber and hummus (1/2 cup hummus, 1 cucumber)", 180, 8, 20, 8),
-    s("Celery and peanut butter (2 tbsp pb, 4 stalks)", 200, 8, 12, 16),
-    s("Apple with cheese (1 apple, 1 oz cheese)", 180, 6, 22, 8),
-    s("Carrot sticks and ranch (1 cup carrots, 2 tbsp ranch)", 120, 2, 12, 8),
-  ];
-
-  // Build a pool based on preference and gaps
-  let pool = [] as Array<ReturnType<typeof s>>;
-  
-  if (preference) {
-    const pref = preference.toLowerCase();
-    // Yogurt-specific options
-    if (pref.includes("yogurt")) {
-      pool = [
-        s("Greek yogurt parfait (yogurt, berries, granola)", 310, 24, 40, 10),
-        s("Greek yogurt (1 cup) + protein granola (1/4 cup)", 280, 28, 28, 6),
-        s("Greek yogurt (3/4 cup) + berries (1/2 cup)", 150, 15, 15, 2),
-        s("Yogurt smoothie (yogurt, banana, protein powder)", 320, 26, 42, 8),
-        s("Yogurt bowl (yogurt, honey, nuts, fruit)", 280, 18, 32, 12),
-      ];
-    }
-    // Other specific food preferences
-    else if (pref.includes("tuna")) pool = [...tunaOptions];
-    else if (pref.includes("chicken")) pool = [...chickenOptions];
-    else if (pref.includes("fish") || pref.includes("salmon") || pref.includes("cod")) pool = [...fishOptions];
-    else if (pref.includes("veg") || pref.includes("vegetarian") || pref.includes("bean") || pref.includes("tofu")) pool = [...vegOptions, ...balanced];
-    else if (pref.includes("light") || pref.includes("small") || pref.includes("snack")) pool = [...lightOptions, ...lowCal];
-    else if (pref.includes("protein") || pref.includes("meat")) pool = [...highProtein, ...chickenOptions, ...fishOptions];
-    else if (pref.includes("carb") || pref.includes("bread") || pref.includes("pasta")) pool = [...highCarb, ...balanced];
-    else if (pref.includes("fat") || pref.includes("avocado") || pref.includes("cheese")) pool = [...highFat, ...balanced];
-    // For any other food preference, use a more flexible approach
-    else {
-      // Try to match the preference with any food category
-      const allOptions = [...highProtein, ...highCarb, ...highFat, ...balanced, ...lowCal, ...tunaOptions, ...chickenOptions, ...fishOptions, ...vegOptions, ...lightOptions];
-      pool = allOptions.filter(option => 
-        option.title.toLowerCase().includes(pref) || 
-        pref.includes(option.title.toLowerCase().split(' ')[0])
-      );
-      // If no direct matches, fall back to balanced options
-      if (pool.length === 0) pool = [...balanced, ...highProtein];
-    }
-  }
-
-  // If no preference or preference didn't match, use gap-based logic
-  if (pool.length === 0) {
-    if (caloriesLeft <= 0) {
-      pool = [...lowCal, ...highProtein];
-    } else {
-      const biggestGap = Math.max(proteinLeft, carbsLeft, fatLeft);
-      if (biggestGap === proteinLeft) pool = [...highProtein, ...balanced, ...lowCal];
-      else if (biggestGap === carbsLeft) pool = [...highCarb, ...balanced, ...highProtein];
-      else pool = [...highFat, ...balanced, ...highProtein];
-    }
-  }
-  
-  // If we have a preference but the pool is still empty, create a minimal pool from the preference
-  if (pool.length === 0 && preference) {
-    const pref = preference.toLowerCase();
-    if (pref.includes("tuna")) pool = [...tunaOptions];
-    else if (pref.includes("chicken")) pool = [...chickenOptions];
-    else if (pref.includes("fish") || pref.includes("salmon") || pref.includes("cod")) pool = [...fishOptions];
-    else if (pref.includes("veg") || pref.includes("vegetarian")) pool = [...vegOptions];
-    else if (pref.includes("light") || pref.includes("small") || pref.includes("snack")) pool = [...lightOptions];
-    else if (pref.includes("yogurt")) pool = [
-      s("Greek yogurt parfait (yogurt, berries, granola)", 310, 24, 40, 10),
-      s("Greek yogurt (1 cup) + protein granola (1/4 cup)", 280, 28, 28, 6),
-      s("Greek yogurt (3/4 cup) + berries (1/2 cup)", 150, 15, 15, 2),
-      s("Yogurt smoothie (yogurt, banana, protein powder)", 320, 26, 42, 8),
-      s("Yogurt bowl (yogurt, honey, nuts, fruit)", 280, 18, 32, 12),
-    ];
-  }
-
-  // Filter excludes and shuffle
-  const excludes = excludeTitles || new Set<string>();
-  const filtered = pool.filter(item => !excludes.has(item.title));
-  for (let i = filtered.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
-  }
-  const picked = filtered.slice(0, 3);
-  
-  // For preference-based requests, don't backfill - just return what we have
-  // This prevents repeating suggestions when we've exhausted all unique options
-  
-  // Only if we still don't have enough and no preference, use general pools
-  if (picked.length < 3 && !preference) {
-    const anyPool = [...lowCal, ...highProtein, ...highCarb, ...highFat, ...balanced, ...tunaOptions, ...chickenOptions, ...fishOptions, ...vegOptions, ...lightOptions].filter(
-      x => !excludes.has(x.title) && !picked.find(p => p.title === x.title)
-    );
-    for (const x of anyPool) {
-      if (picked.length >= 3) break;
-      picked.push(x);
-    }
-  }
-  
-  // If we have a preference but still don't have enough items, don't repeat - just return what we have
-  // This prevents repeating suggestions when we've exhausted all unique options
-
-  // If we have no suggestions and this is a preference request, inform the user
-  if (picked.length === 0 && preference) {
-    return `I've shown you all the ${preference} options I have! Would you like me to suggest some other types of meals instead?`;
-  }
-  
-  // If we have fewer than 3 suggestions and this is a preference request, it means we've exhausted unique options
-  if (picked.length < 3 && preference) {
-    // Count how many tuna options have been shown in the conversation history
-    const tunaOptionsShown = excludes.size;
-    console.log("Tuna options shown:", tunaOptionsShown);
-    console.log("Excludes:", Array.from(excludes));
-    if (tunaOptionsShown >= 5) {
-      return `I've shown you all the ${preference} options I have! Would you like me to suggest some other types of meals instead?`;
-    }
-  }
-
-  const header = goals?.targetCalories
-    ? `Based on today's remaining (${Math.max(0, caloriesLeft)} cal, ${Math.max(0, proteinLeft)}g protein, ${Math.max(0, carbsLeft)}g carbs, ${Math.max(0, fatLeft)}g fat), here are some options:`
-    : `Here are a few options that generally fit most goals:`;
-
-  const lines = picked.map(x => `- ${x.title} (≈ ${x.c} cal, ${x.p}g protein, ${x.carb}g carbs, ${x.f}g fat)`);
-  return `${header}\n${lines.join("\n")}`;
+  // This function is now a fallback - OpenAI should handle suggestions directly
+  // Return empty array to let OpenAI generate suggestions
+  return [];
 }
 
 function extractPreviousSuggestionTitles(messages: Array<{ role: string; content: string }>): Set<string> {
@@ -319,7 +131,7 @@ function extractPreferenceFromMessage(message: string): string | undefined {
 }
 
 function extractPreferenceFromConversationHistory(conversationHistory: Array<{ role: string; content: string }>): string | undefined {
-  // Look through recent user messages to find the original preference
+  // Look for the most recent user message that contains a food preference
   for (let i = conversationHistory.length - 1; i >= 0; i--) {
     const msg = conversationHistory[i];
     if (msg.role === "user") {
@@ -336,40 +148,10 @@ async function generatePreferenceSuggestions(
   preference: string,
   remaining: { calories: number; protein: number; carbs: number; fat: number },
   goals?: { targetCalories?: number; targetProtein?: number; targetCarbs?: number; targetFat?: number },
-  excludes?: Set<string>
+  excludeTitles?: Set<string>
 ): Promise<string> {
-  const client = getOpenAIClient();
-  const excludeList = Array.from(excludes || new Set<string>());
-  const header = goals?.targetCalories
-    ? `Based on today's remaining (${Math.max(0, remaining.calories)} cal, ${Math.max(0, remaining.protein)}g protein, ${Math.max(0, remaining.carbs)}g carbs, ${Math.max(0, remaining.fat)}g fat)`
-    : `Here are a few options that generally fit most goals`;
-
-  const system = `You create concise meal/snack suggestions.
-Rules:
-- Return exactly 3 bullet points.
-- Every suggestion MUST include the ingredient: ${preference}.
-- Align roughly to the user's remaining macros if provided.
-- Do NOT repeat any previously suggested titles: ${excludeList.length > 0 ? excludeList.join(", ") : "(none)"}.
-- Make each title distinct (different form/prep/combination).
-- Include approximate macros in the format: (≈ X cal, Yg protein, Zg carbs, Wg fat).`;
-
-  const user = `${header}. Provide 3 NEW ${preference} options now.`;
-
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    temperature: 0.6,
-    top_p: 0.9,
-  });
-
-  const text = completion.choices?.[0]?.message?.content?.trim();
-  if (!text) {
-    return `${header}, here are some ${preference} options:`;
-  }
-  return text;
+  // This function is no longer needed - OpenAI handles suggestions directly
+  return "I understand you'd like suggestions. How else can I help you with your nutrition tracking?";
 }
 
 export async function POST(req: NextRequest) {
@@ -426,7 +208,7 @@ export async function POST(req: NextRequest) {
     };
 
     const client = getOpenAIClient();
-    const system = `You are a nutrition logging assistant. Log food when users mention what they ate.
+    const system = `You are a nutrition logging assistant. Your job is to help users log their food intake accurately.
 
 USER'S GOALS: ${goals ? `${goals.targetCalories || 'Not set'} kcal, ${goals.targetProtein || 'Not set'}g protein, ${goals.targetCarbs || 'Not set'}g carbs, ${goals.targetFat || 'Not set'}g fat` : 'No goals set yet'}
 
@@ -434,7 +216,7 @@ TODAY'S PROGRESS: ${todayTotals.calories} calories, ${todayTotals.protein}g prot
 
 TODAY'S FOOD: ${todayLogs.length > 0 ? todayLogs.map(log => `${log.item} (${log.calories || 0} cal)`).join(', ') : 'None logged yet'}
 
-IMPORTANT: Always respond with valid JSON. If the user asks for food suggestions or mentions preferences, provide specific meal ideas with calories and macros.
+IMPORTANT: Always respond with valid JSON. You have access to comprehensive nutrition databases and can provide accurate calorie and macro estimates for most foods.
 
 Output only valid JSON with this shape:
 {
@@ -450,47 +232,49 @@ Output only valid JSON with this shape:
 }
 
 Rules:
-- CRITICAL: If the user mentions food they ate (using words like "had", "ate", "drank", "consumed"), you MUST set action to "log", add the food to logs array, and set needsConfirmation to true
+- If the user mentions food they ate (using words like "had", "ate", "drank", "consumed"), set action to "log", add the food to logs array, and set needsConfirmation to true
+- If you have enough information to provide accurate nutrition estimates, include calories, protein, carbs, and fat in the log entry
+- If you need more information to provide accurate estimates, set action to "chat" and ask specific clarifying questions in the reply field
 - If the user wants to remove food, set action to "remove", add items to itemsToRemove, and set needsConfirmation to true
-- If the user confirms, set action to "confirm"
-- If the user asks for meal ideas or general advice, set action to "chat" and provide 2-3 specific suggestions with approximate calories and macros, aligned to remaining goals
-- If the user asks for "more" suggestions, "other options", "share some more", "more please", "additional ideas", "more options", "show me more", "give me more", "share some more please", or similar phrases, provide additional meal ideas
-- IMPORTANT: When the user asks for "more" or "additional" suggestions, always provide new meal ideas regardless of conversation context
-- When the user asks for specific food preferences (e.g., "more yogurt options", "chicken-based meals", "vegetarian options", "light snacks"), provide meal suggestions that specifically match their request
-- CRITICAL: If the user asks for a specific food type (e.g., "tuna options", "yogurt meals", "chicken dishes"), ALL suggested meals must contain that specific food ingredient
-- Do NOT suggest meals that don't contain the requested food type when the user asks for specific food preferences
-- When needsConfirmation is true, leave reply empty (it will be auto-filled)
+
+QUANTITY CLARIFICATION:
+- If the user mentions a food item WITHOUT specifying a quantity (e.g., "I had peanuts", "I ate chicken", "I drank wine"), you MUST ask for the quantity before logging
+- Set action to "chat" and put your clarification question in the "reply" field of the JSON response
+- Ask specific questions like "How much roasted salted peanuts did you have? (e.g., 1 cup, 2 tablespoons, 1/4 cup, 1 handful)"
+- Only proceed with logging when the user provides a clear quantity
+- Examples that need clarification: "peanuts", "chicken", "wine", "bread", "rice", "salad", "soup", "yogurt", "fruit", "vegetables", "nuts", "cheese", "cereal", "milk", "juice", "coffee", "tea"
+- Examples that DON'T need clarification: "a cup of peanuts", "2 eggs", "1 apple", "a glass of wine", "a slice of bread", "a bowl of soup", "a serving of pasta"
+
+CLARIFICATION RESPONSES:
+- When the user responds to a clarification question with a quantity (e.g., "1.5 cups", "2 tablespoons", "1/2 cup"), you MUST log the food item with that quantity
+- Set action to "log", include the food item with the provided quantity, and set needsConfirmation to true
+- Do NOT ask for more clarification if the user has provided a clear quantity
+- Examples of clear quantities: "1.5 cups of rice", "2 tablespoons of peanut butter", "1/2 cup of yogurt", "1 apple", "2 eggs"
+
+IMPORTANT: The fallback response should only be used for completely unrecognizable or non-food-related messages. If the user mentions any food items, either log them (if quantity is clear) or ask for clarification (if quantity is unclear). Always put your response message in the "reply" field of the JSON.
+
+CRITICAL JSON RULES:
+- NEVER return empty JSON {} - always include at least "action" and "reply" fields
+- For clarification questions: {"action": "chat", "reply": "your question here"}
+- For logging: {"action": "log", "logs": [...], "needsConfirmation": true}
+- For confirmations: {"action": "confirm", "logs": [...]} - MUST include the logs array that was previously confirmed
+- For denials: {"action": "chat", "reply": "No problem, I won't log that. What else can I help you with?"}
+
+CONFIRMATION HANDLING:
+- When the user responds in the affirmative (e.g., "yes", "confirm", "ok", "sure", "yep", "yeah", "correct", "right", "that's right", "add it", "log it"), set action to "confirm" and leave reply empty
+- When the user responds in the negative (e.g., "no", "cancel", "don't", "nope", "nah", "wrong", "incorrect", "remove it", "delete it"), set action to "chat" and provide a helpful response like "No problem, I won't log that. What else can I help you with?"
+- When the user asks for meal suggestions, set action to "chat" and provide helpful suggestions in the reply field
+- When needsConfirmation is true, leave reply empty (it will be auto-filled by the system)
 - Otherwise, provide a helpful reply in the "reply" field
 
-CLARIFYING QUESTIONS:
-- ALWAYS ask clarifying questions when the user mentions food items without specific quantities or when quantities are unclear
-- Examples that need clarification: "tomato slices", "olive oil", "chicken", "rice", "salad", "smoothie", "protein shake", "sandwich", "pasta", "soup", "yogurt", "fruit", "vegetables", "nuts", "cheese", "bread", "cereal", "milk", "juice", "coffee", "tea"
-- Ask about: quantity (how much), portion size, preparation method, specific ingredients, brand/variety if relevant
-- For simple items: Ask "How much [item] did you have? (e.g., 1 cup, 2 tablespoons, 1 medium piece, 1/2 cup)"
-- For complex items: Ask about ingredients and quantities
-- For oils/dressings: Ask about amount used (tablespoons, teaspoons, etc.)
-- For fruits/vegetables: Ask about size/quantity (small/medium/large, number of pieces, cups, etc.)
-- Set action to "chat" and provide specific questions in the reply field
-- Only log food after getting sufficient details to provide accurate nutritional estimates
+IMPORTANT: When confirming food items, you MUST include the exact same logs array that was previously shown for confirmation. Do not return empty logs when confirming.
 
-FOLLOW-UP RESPONSES:
-- CRITICAL: When the user responds to clarifying questions with more details, you MUST set action to "log", add the food to logs, and set needsConfirmation to true
-- Do NOT give generic responses like "I'm here to help" when the user is providing food details
-- Always try to log the food once you have enough information, even if some details are estimated
-- IMPORTANT: If the user mentions specific food ingredients or details, immediately try to log the food rather than giving generic responses
-- When in doubt about quantities, use reasonable estimates (e.g., 1 scoop protein powder = 25g protein, 1 medium banana = 100 calories, 1 tbsp peanut butter = 90 calories, 1 glass wine = 120 calories)
-- EXAMPLES OF CLARIFICATION RESPONSES:
-  - User: "1 bowl" → action: "log", logs: [{"item": "thai basil fried rice", "calories": 400, "protein": 8, "carbs": 60, "fat": 12}], needsConfirmation: true
-  - User: "medium portion" → action: "log", logs: [{"item": "thai basil fried rice", "calories": 350, "protein": 7, "carbs": 50, "fat": 10}], needsConfirmation: true
-  - User: "2 cups" → action: "log", logs: [{"item": "thai basil fried rice", "calories": 600, "protein": 12, "carbs": 90, "fat": 18}], needsConfirmation: true
-- EXAMPLES: 
-  - "I had a glass of wine" → action: "log", logs: [{"item": "wine", "calories": 120, "protein": 0, "carbs": 4, "fat": 0}], needsConfirmation: true
-  - "I ate 2 eggs" → action: "log", logs: [{"item": "eggs", "calories": 140, "protein": 12, "carbs": 0, "fat": 10}], needsConfirmation: true
+CONFIRMATION MESSAGES:
+- When needsConfirmation is true, leave the reply field empty - the system will auto-generate the confirmation message
+- Do NOT put confirmation messages like "Please confirm adding..." in the reply field
+- The system will automatically show the confirmation message with food details and totals
 
-CONVERSATION CONTEXT:
-- If the user responds to a suggestion request (e.g., "What kind of food are you in the mood for?"), provide specific meal suggestions based on their response
-- If the user mentions food preferences (e.g., "chicken", "light", "protein", "carbs"), suggest meals that match those preferences
-- Always maintain conversation context and avoid generic responses when the user is engaging with suggestions`;
+Use your nutrition knowledge to provide accurate estimates. If you're unsure about quantities or need more details, ask specific questions.`;
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
@@ -509,216 +293,6 @@ CONVERSATION CONTEXT:
     const modelOut = ModelOutputSchema.safeParse(parsed);
     console.log("DEBUG: Model output success:", modelOut.success);
 
-    // Check if user is asking for suggestions or responding to suggestions
-    const lower = message.toLowerCase();
-    const wantsSuggestions =
-      lower.includes("still hungry") ||
-      lower.includes("what else could i eat") ||
-      lower.includes("what should i eat") ||
-      lower.includes("suggest") ||
-      lower.includes("ideas") ||
-      lower.includes("recommend") ||
-      lower.includes("snack suggestions") ||
-      lower.includes("more food") ||
-      lower.includes("help me hit my macros") ||
-      (lower.includes("hungry") && !lower.includes("had") && !lower.includes("ate") && !lower.includes("drank"));
-
-    // Check if this is a follow-up response to a suggestion request
-    const isFollowUpToSuggestion = conversationHistory.some(msg => 
-      msg.role === "assistant" && 
-      (msg.content.includes("What kind of food") || 
-       msg.content.includes("suggest") || 
-       msg.content.includes("meal ideas") ||
-       msg.content.includes("preferences"))
-    );
-
-    // Check if this is a follow-up response to a clarification question
-    const isFollowUpToClarification = conversationHistory.some(msg => 
-      msg.role === "assistant" && 
-      (msg.content.includes("How much") || 
-       msg.content.includes("roughly") ||
-       msg.content.includes("portion"))
-    );
-
-    // Check if user is responding with food preferences
-    const isFoodPreference = 
-      lower.includes("chicken") ||
-      lower.includes("protein") ||
-      lower.includes("light") ||
-      lower.includes("heavy") ||
-      lower.includes("salad") ||
-      lower.includes("soup") ||
-      lower.includes("sandwich") ||
-      lower.includes("pasta") ||
-      lower.includes("fish") ||
-      lower.includes("beef") ||
-      lower.includes("vegetarian") ||
-      lower.includes("vegan") ||
-      lower.includes("something") ||
-      lower.includes("anything");
-
-    // Check if user is mentioning food items that need quantity clarification
-    const foodItemsNeedingClarification = [
-      'tomato', 'tomatoes', 'olive oil', 'chicken', 'rice', 'salad', 'smoothie', 'protein shake', 
-      'sandwich', 'pasta', 'soup', 'yogurt', 'fruit', 'vegetables', 'nuts', 'cheese', 'bread', 
-      'cereal', 'milk', 'juice', 'coffee', 'tea', 'apple', 'banana', 'orange', 'carrot', 'lettuce',
-      'spinach', 'broccoli', 'cauliflower', 'potato', 'potatoes', 'onion', 'onions', 'garlic',
-      'pepper', 'peppers', 'cucumber', 'cucumbers', 'avocado', 'avocados', 'egg', 'eggs', 'meat',
-      'beef', 'pork', 'lamb', 'turkey', 'duck', 'salmon', 'tuna', 'shrimp', 'fish', 'seafood',
-      'pasta', 'noodles', 'spaghetti', 'macaroni', 'penne', 'rice', 'quinoa', 'oatmeal', 'cereal',
-      'bread', 'toast', 'bagel', 'muffin', 'cookie', 'cookies', 'cake', 'pie', 'dessert',
-      'sauce', 'dressing', 'mayo', 'mustard', 'ketchup', 'butter', 'margarine', 'oil', 'vinegar',
-      // Alcoholic beverages and related
-      'wine', 'red wine', 'white wine', 'beer', 'lager', 'ale', 'cider', 'hard seltzer', 'seltzer',
-      'whiskey', 'vodka', 'rum', 'gin', 'tequila', 'liquor', 'alcohol'
-    ];
-
-    // Check if user is mentioning food items that need quantity clarification
-    const hasFoodItem = foodItemsNeedingClarification.some(item => lower.includes(item));
-    const hasConsumptionVerb = lower.includes('had') || lower.includes('ate') || lower.includes('drank') || lower.includes('consumed');
-    const hasClearQuantity = lower.includes('1 ') || lower.includes('2 ') || lower.includes('3 ') || lower.includes('4 ') || lower.includes('5 ') ||
-                            lower.includes('one ') || lower.includes('two ') || lower.includes('three ') ||
-                            lower.includes('cup') || lower.includes('tbsp') || lower.includes('tsp') || lower.includes('tablespoon') || lower.includes('teaspoon') ||
-                            lower.includes('ounce') || lower.includes(' oz') || lower.includes('oz ') || lower.includes('ml') ||
-                            lower.includes('pound') || lower.includes('gram') || lower.includes('piece') || lower.includes('slice') ||
-                            lower.includes('medium') || lower.includes('large') || lower.includes('small') ||
-                            lower.includes('glass') || lower.includes('bottle') || lower.includes('can') || lower.includes('bowl') || lower.includes('plate') || lower.includes('serving');
-    
-    const needsQuantityClarification = hasFoodItem && hasConsumptionVerb && !hasClearQuantity;
-
-    console.log("DEBUG: Message:", message);
-    console.log("DEBUG: Lower:", lower);
-    console.log("DEBUG: Has food item:", hasFoodItem);
-    console.log("DEBUG: Has consumption verb:", hasConsumptionVerb);
-    console.log("DEBUG: Has clear quantity:", hasClearQuantity);
-
-    console.log("DEBUG: Needs clarification:", needsQuantityClarification);
-    console.log("DEBUG: Wants suggestions:", wantsSuggestions);
-
-    // If this is a short response (likely a preference), treat it as a suggestion request
-    const isShortPreferenceResponse = message.length < 20 && (isFoodPreference || isFollowUpToSuggestion);
-
-    // Suggestion requests: let AI handle preference-specific for variety; fallback to server for general
-    // But prioritize food logging if user mentions specific food items
-    if (wantsSuggestions) {
-      // Check if user is mentioning specific food items (likely logging, not asking for suggestions)
-      const specificFoodKeywords = ['had', 'ate', 'drank', 'consumed', 'finished', 'just had', 'just ate', 'just drank'];
-      const isLoggingFood = specificFoodKeywords.some(keyword => message.toLowerCase().includes(keyword));
-      
-      if (isLoggingFood) {
-        // Let the AI handle this as a food logging request instead
-        // Continue to the normal AI processing below
-      } else {
-        const excludes = extractPreviousSuggestionTitles(conversationHistory as any);
-        const goalsNorm = goals
-          ? {
-              targetCalories: goals.targetCalories || undefined,
-              targetProtein: goals.targetProtein || undefined,
-              targetCarbs: goals.targetCarbs || undefined,
-              targetFat: goals.targetFat || undefined,
-            }
-          : undefined;
-        const preference = extractPreferenceFromMessage(message) || extractPreferenceFromConversationHistory(conversationHistory);
-        if (preference) {
-          const replyText = await generatePreferenceSuggestions(preference, remaining, goalsNorm, excludes);
-          return NextResponse.json({ action: "chat", reply: replyText, logs: [], goals: {}, itemsToRemove: [], needsConfirmation: false });
-        }
-        const suggestionText = buildSuggestions(remaining, goalsNorm, excludes);
-        return NextResponse.json({ action: "chat", reply: suggestionText, logs: [], goals: {}, itemsToRemove: [], needsConfirmation: false });
-      }
-    }
-
-    // Handle quantity clarification requests
-    if (needsQuantityClarification) {
-      console.log("DEBUG: Triggering clarification for message:", message);
-      console.log("DEBUG: Lower message:", lower);
-      const detectedItems = foodItemsNeedingClarification.filter(item => lower.includes(item));
-      console.log("DEBUG: Detected items:", detectedItems);
-      // Remove duplicates and limit to first 3 items
-      const uniqueItems = [...new Set(detectedItems)].slice(0, 3);
-      const itemsList = uniqueItems.join(', '); // Limit to first 3 items
-      
-      // Generate simple, casual clarification questions
-      let clarificationQuestion = "";
-      if (detectedItems.some(item => ['wine', 'beer', 'liquor', 'alcohol'].includes(item))) {
-        clarificationQuestion = "How much wine did you have? (roughly)";
-      } else if (detectedItems.some(item => ['oil', 'vinegar', 'dressing'].includes(item))) {
-        clarificationQuestion = "How much oil did you use? (roughly)";
-      } else if (detectedItems.some(item => ['fruit', 'apple', 'banana', 'orange'].includes(item))) {
-        clarificationQuestion = "How much fruit did you have? (roughly)";
-      } else if (detectedItems.some(item => ['meat', 'chicken', 'beef', 'fish'].includes(item))) {
-        clarificationQuestion = "How much meat did you have? (roughly)";
-      } else if (message.split(' ').length > 3) {
-        // This looks like a complete dish
-        clarificationQuestion = "How much of that dish did you have? (e.g., 1 cup, 1 bowl, 1 plate, small/medium/large portion)";
-      } else {
-        clarificationQuestion = "How much did you have? (roughly)";
-      }
-      
-      return NextResponse.json({
-        action: "chat",
-        reply: `${clarificationQuestion}`,
-        logs: [],
-        goals: {},
-        itemsToRemove: [],
-        needsConfirmation: false,
-      });
-    }
-
-    // If this is a follow-up to clarification, force logging even if AI fails
-    if (isFollowUpToClarification && !modelOut.success) {
-      // Extract the original food item from conversation history
-      const originalMessage = conversationHistory.find(msg => msg.role === "user")?.content || "";
-      const originalLower = originalMessage.toLowerCase();
-      
-      // Try to extract food items from the original message
-      const originalFoodItems = foodItemsNeedingClarification.filter(item => originalLower.includes(item));
-      const foodItem = originalFoodItems[0] || "food item";
-      
-      // Create a basic log entry based on the response
-      let logEntry;
-      if (lower.includes('bowl') || lower.includes('1 bowl')) {
-        logEntry = {
-          item: "thai basil fried rice",
-          calories: 400,
-          protein: 8,
-          carbs: 60,
-          fat: 12,
-        };
-      } else if (lower.includes('cup') || lower.includes('1 cup')) {
-        logEntry = {
-          item: "thai basil fried rice", 
-          calories: 300,
-          protein: 6,
-          carbs: 45,
-          fat: 9,
-        };
-      } else if (lower.includes('medium')) {
-        logEntry = {
-          item: "thai basil fried rice",
-          calories: 350,
-          protein: 7,
-          carbs: 50,
-          fat: 10,
-        };
-      } else {
-        logEntry = {
-          item: "thai basil fried rice",
-          calories: 300,
-          protein: 6,
-          carbs: 45,
-          fat: 9,
-        };
-      }
-      
-      return NextResponse.json({
-        action: "log",
-        logs: [logEntry],
-        needsConfirmation: true,
-        reply: `I'll log ${logEntry.item} (${logEntry.calories} calories). Please confirm or let me know if you'd like to adjust the details.`,
-      });
-    }
-
     if (!modelOut.success) {
       // Return a fallback response instead of error
       return NextResponse.json({
@@ -732,6 +306,41 @@ CONVERSATION CONTEXT:
     }
 
     const { action, logs = [], goals: newGoals, itemsToRemove = [], needsConfirmation = false, reply } = modelOut.data;
+
+    // Check if we got empty JSON or missing critical fields
+    if (!action || (action === "chat" && !reply)) {
+      // This is likely a clarification question that wasn't properly formatted
+      // Try to extract the question from the AI's raw response
+      const text = completion.choices?.[0]?.message?.content ?? "";
+      console.log("DEBUG: Smart fallback triggered. Raw AI response:", text);
+      console.log("DEBUG: Contains question mark:", text.includes("?"));
+      console.log("DEBUG: Contains 'how much':", text.toLowerCase().includes("how much"));
+      console.log("DEBUG: Contains 'quantity':", text.toLowerCase().includes("quantity"));
+      
+      if (text.includes("?") || text.toLowerCase().includes("how much") || text.toLowerCase().includes("quantity")) {
+        // This looks like a clarification question, return it properly
+        console.log("DEBUG: Returning clarification question as proper response");
+        return NextResponse.json({
+          action: "chat",
+          reply: text.trim(),
+          logs: [],
+          goals: {},
+          itemsToRemove: [],
+          needsConfirmation: false,
+        });
+      }
+      
+      // Otherwise, return fallback
+      console.log("DEBUG: Returning generic fallback");
+      return NextResponse.json({
+        action: "chat",
+        reply: "I'm sorry, I didn't get that. Let me try to help you with nutrition tracking:\n\n• Log food: \"I had 2 eggs for breakfast\"\n• Ask for suggestions: \"What should I eat?\"\n• Remove items: \"Remove the eggs from today\"\n• Get help: \"What can you do?\"\n\nCould you try rephrasing your request?",
+        logs: [],
+        goals: {},
+        itemsToRemove: [],
+        needsConfirmation: false,
+      });
+    }
 
     // Handle different actions
     if (action === "remove" && itemsToRemove.length > 0) {
@@ -778,6 +387,20 @@ CONVERSATION CONTEXT:
           action: "confirm",
           logs,
           reply: reply || `Confirmed! Added ${logs.length} item(s) to your food log.`,
+        });
+      }
+      
+      // If no logs in the response but this is a confirmation, check if the previous message was asking for confirmation
+      const previousMessage = conversationHistory[conversationHistory.length - 1];
+      if (previousMessage && previousMessage.role === "assistant" && 
+          (previousMessage.content.includes("Please confirm adding") || 
+           previousMessage.content.includes("Reply with \"yes\" to confirm"))) {
+        // This is likely a confirmation of previously logged items
+        // We can't recover the exact logs, but we can acknowledge the confirmation
+        return NextResponse.json({
+          action: "confirm",
+          logs: [],
+          reply: "I understand you want to confirm, but I couldn't retrieve the specific items. Could you please try logging your food again?",
         });
       }
       
@@ -846,42 +469,44 @@ CONVERSATION CONTEXT:
     // Ensure we always have a reply
     let finalReply = reply;
     
-    // Check if user is asking for more meal suggestions
-    const moreRequestPatterns = [
-      'more', 'additional', 'other', 'share some more', 'more please', 
-      'more options', 'show me more', 'give me more', 'more suggestions'
+    // Check if user is done logging for the day
+    const doneLoggingPatterns = [
+      'done', 'finished', 'complete', 'that\'s all', 'that\'s it', 'all done',
+      'done for today', 'finished logging', 'complete for today', 'done eating',
+      'finished eating', 'no more', 'that\'s everything', 'all set'
     ];
-    const isMoreRequest = moreRequestPatterns.some(pattern => 
+    const isDoneLogging = doneLoggingPatterns.some(pattern => 
       message.toLowerCase().includes(pattern.toLowerCase())
     );
     
-    // "More" requests: prefer AI for preference-specific (infinite variations), otherwise use server fallback
-    if (isMoreRequest) {
-      const originalPreference = extractPreferenceFromConversationHistory(conversationHistory);
-      const excludes = extractPreviousSuggestionTitles(conversationHistory as any);
-      const goalsNorm = goals
-        ? {
-            targetCalories: goals.targetCalories || undefined,
-            targetProtein: goals.targetProtein || undefined,
-            targetCarbs: goals.targetCarbs || undefined,
-            targetFat: goals.targetFat || undefined,
-          }
-        : undefined;
-      if (originalPreference) {
-        finalReply = await generatePreferenceSuggestions(originalPreference, remaining, goalsNorm, excludes);
-      } else {
-        finalReply = buildSuggestions(remaining, goalsNorm, excludes);
-      }
+    // Handle "done logging" requests
+    if (isDoneLogging) {
+      const todaySummary = `Great! Here's your summary for today:\n\n` +
+        `📊 **Daily Totals:**\n` +
+        `• Calories: ~${Math.round(todayTotals.calories)} / ${goals?.targetCalories || 'N/A'}\n` +
+        `• Protein: ${Math.round(todayTotals.protein)}g / ${goals?.targetProtein || 'N/A'}g\n` +
+        `• Carbs: ${Math.round(todayTotals.carbs)}g / ${goals?.targetCarbs || 'N/A'}g\n` +
+        `• Fat: ${Math.round(todayTotals.fat)}g / ${goals?.targetFat || 'N/A'}g\n\n` +
+        `🎯 **Remaining:**\n` +
+        `• Calories: ~${Math.max(0, remaining.calories)}\n` +
+        `• Protein: ${Math.max(0, remaining.protein)}g\n` +
+        `• Carbs: ${Math.max(0, remaining.carbs)}g\n` +
+        `• Fat: ${Math.max(0, remaining.fat)}g\n\n` +
+        `Have a great rest of your day! 🌟`;
+      
+      finalReply = todaySummary;
     }
     
     // If we need confirmation for adds, list the items with their macros and totals
     if (!finalReply && needsConfirmation && action === "log" && logs.length > 0) {
       const lines = logs
         .map(
-          (l) =>
-            `- ${l.item}: ${Math.round(l.calories ?? 0)} cal, ${Math.round(
+          (l) => {
+            const quantityText = l.quantity && l.unit ? ` (${l.quantity} ${l.unit})` : "";
+            return `- ${l.item}${quantityText}: ${Math.round(l.calories ?? 0)} cal, ${Math.round(
               l.protein ?? 0
-            )}g protein, ${Math.round(l.carbs ?? 0)}g carbs, ${Math.round(l.fat ?? 0)}g fat`
+            )}g protein, ${Math.round(l.carbs ?? 0)}g carbs, ${Math.round(l.fat ?? 0)}g fat`;
+          }
         )
         .join("\n");
       
@@ -909,19 +534,7 @@ CONVERSATION CONTEXT:
       finalReply = `Logged ${logs.length} item(s): ${itemNames}.`;
     }
     if (!finalReply && action === "chat") {
-      // If the user asked for suggestions, generate aligned options
-      if (/hungry|what else|suggest|ideas|recommend/i.test(message)) {
-        const excludes = extractPreviousSuggestionTitles(conversationHistory as any);
-        const preference = extractPreferenceFromMessage(message);
-        if (preference) {
-          // Let the AI handle specific preferences
-          finalReply = "I understand. How else can I help you with your nutrition tracking?";
-        } else {
-          finalReply = buildSuggestions(remaining, goals ? { targetCalories: goals.targetCalories || undefined, targetProtein: goals.targetProtein || undefined, targetCarbs: goals.targetCarbs || undefined, targetFat: goals.targetFat || undefined } : undefined, excludes);
-        }
-      } else {
-        finalReply = "I understand. How else can I help you with your nutrition tracking?";
-      }
+      finalReply = "I understand. How else can I help you with your nutrition tracking?";
     }
     if (!finalReply && action === "remove") {
       finalReply = "I can help you remove items from your food log. Please specify which items you'd like to remove.";

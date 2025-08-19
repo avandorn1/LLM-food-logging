@@ -39,7 +39,32 @@ export async function POST(req: NextRequest) {
       orderBy: { loggedAt: "asc" },
     });
 
+    // Get yesterday's logs for comparison
+    const yesterdayDate = new Date(easternDate);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    
+    const yesterdayLogs = await prisma.foodLog.findMany({
+      where: {
+        userId: user.id,
+        loggedAt: {
+          gte: startOfDay(yesterdayDate),
+          lt: new Date(startOfDay(yesterdayDate).getTime() + 24 * 60 * 60 * 1000),
+        },
+      },
+      orderBy: { loggedAt: "asc" },
+    });
+
     const todayTotals = todayLogs.reduce(
+      (acc, log) => ({
+        calories: acc.calories + (log.calories || 0),
+        protein: acc.protein + (log.protein || 0),
+        carbs: acc.carbs + (log.carbs || 0),
+        fat: acc.fat + (log.fat || 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+
+    const yesterdayTotals = yesterdayLogs.reduce(
       (acc, log) => ({
         calories: acc.calories + (log.calories || 0),
         protein: acc.protein + (log.protein || 0),
@@ -61,19 +86,30 @@ export async function POST(req: NextRequest) {
     const systemPrompt = `You are a supportive nutrition coach. Generate a brief, encouraging message (2-3 sentences) based on the user's nutrition data for today. 
 
 Be positive and motivating, but realistic. Consider:
-- If they're on track with their goals
-- If they've logged food today
-- Their progress toward calorie/macro targets
+- Specific food choices they made (call out healthy options like vegetables, lean proteins, or note high-calorie items)
+- How they're tracking toward their goals
+- Comparison to yesterday's intake
+- Progress on calorie/macro targets
 - General encouragement for healthy habits
+
+Be specific about their food choices when relevant. For example:
+- "Great job choosing yogurt with protein for breakfast!"
+- "Those peanuts are delicious but high in calories - maybe try a smaller portion next time"
+- "You're crushing your protein goal today!"
+- "Nice balance of carbs and protein in your meals"
 
 Keep it conversational and warm. Don't be overly technical.`;
 
     const userPrompt = `User's nutrition data for today:
-- Logged items: ${todayLogs.length} items
-- Calories consumed: ${todayTotals.calories} / ${goals?.targetCalories || 'not set'} target
+- Today's food items: ${todayLogs.map(log => `${log.item} (${log.quantity || 1} ${log.unit || 'serving'})`).join(', ') || 'No food logged yet'}
+- Calories consumed: ${todayTotals.calories} / ${goals?.targetCalories || 'not set'} target (${remaining.calories > 0 ? `${remaining.calories} remaining` : `${Math.abs(remaining.calories)} over`})
 - Protein: ${todayTotals.protein}g / ${goals?.targetProtein || 'not set'}g target
 - Carbs: ${todayTotals.carbs}g / ${goals?.targetCarbs || 'not set'}g target
 - Fat: ${todayTotals.fat}g / ${goals?.targetFat || 'not set'}g target
+
+Yesterday's comparison:
+- Yesterday's calories: ${yesterdayTotals.calories}
+- Yesterday's food: ${yesterdayLogs.map(log => log.item).join(', ') || 'No food logged'}
 
 Generate a brief encouragement message:`;
 

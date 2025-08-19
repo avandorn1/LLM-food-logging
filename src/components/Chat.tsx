@@ -15,12 +15,13 @@ export default function Chat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
+  const [isDoneLogging, setIsDoneLogging] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
 
   // Show welcome message on first load
   useEffect(() => {
     if (!hasShownWelcome) {
-      const welcomeMessage = `Hi! I'm your AI Nutrition Assistant. You can log food, get meal recommendations, or ask me questions about your nutrition goals. How can I help you today?`;
+      const welcomeMessage = `Hi! I'm Chip, your AI Nutrition Assistant. You can log food, get meal recommendations, or ask me questions about your nutrition goals. How can I help you today?`;
       
       setMessages([{ role: "assistant", content: welcomeMessage }]);
       setHasShownWelcome(true);
@@ -36,8 +37,18 @@ export default function Chat() {
     }
   }, [messages, loading]);
 
+  // Listen for done-logging event
+  useEffect(() => {
+    const handleDoneLogging = () => {
+      setIsDoneLogging(true);
+    };
+    
+    window.addEventListener("done-logging", handleDoneLogging);
+    return () => window.removeEventListener("done-logging", handleDoneLogging);
+  }, []);
+
   async function sendMessage() {
-    if (!input.trim()) return;
+    if (!input.trim() || isDoneLogging) return;
     const toSend = input.trim();
     setMessages((m) => [...m, { role: "user", content: toSend }]);
     setInput("");
@@ -80,7 +91,7 @@ export default function Chat() {
 
   return (
     <div className="w-full border rounded-lg p-4 flex flex-col gap-3 h-[calc(100vh-12rem)]">
-      <div className="text-lg font-semibold">AI Nutrition Assistant</div>
+              <div className="text-lg font-semibold">Chip Chat</div>
       <div ref={listRef} className="flex flex-col gap-2 flex-1 min-h-0 overflow-auto">
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "self-end bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg" : "self-start bg-blue-50 dark:bg-blue-900/30 px-3 py-2 rounded-lg"}>
@@ -143,10 +154,21 @@ export default function Chat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
-          placeholder="e.g. I had 2 eggs and toast for breakfast"
-          className="flex-1 border rounded-lg px-3 py-2 bg-transparent"
+          placeholder={isDoneLogging ? "Logging complete for today" : "e.g. I had 2 eggs and toast for breakfast"}
+          disabled={isDoneLogging}
+          className={`flex-1 border rounded-lg px-3 py-2 bg-transparent ${
+            isDoneLogging ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
         />
-        <button onClick={sendMessage} disabled={loading} className="border rounded-lg px-3 py-2 bg-foreground text-background disabled:opacity-50">Send</button>
+        <button 
+          onClick={sendMessage} 
+          disabled={loading || isDoneLogging} 
+          className={`border rounded-lg px-3 py-2 bg-foreground text-background disabled:opacity-50 ${
+            isDoneLogging ? 'cursor-not-allowed' : ''
+          }`}
+        >
+          {isDoneLogging ? 'Done' : 'Send'}
+        </button>
       </div>
       
     </div>

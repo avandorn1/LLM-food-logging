@@ -14,7 +14,7 @@ export default function Navigation() {
             : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
         }`}
       >
-        Daily Overview
+        Today
         {pathname === "/" && (
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900 dark:bg-white"></div>
         )}
