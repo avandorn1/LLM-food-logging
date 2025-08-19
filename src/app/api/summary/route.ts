@@ -23,11 +23,11 @@ export async function GET(req: NextRequest) {
       prisma.goal.findUnique({ where: { userId } }),
     ]);
 
-    const byDay = new Map<string, { day: string; calories: number; protein: number; carbs: number; fat: number }>();
+    const byDay = new Map<string, { day: string; calories: number; protein: number; carbs: number; fat: number; loggedItems: number }>();
     for (let i = 0; i < days; i++) {
       const d = startOfDay(subDays(end, days - 1 - i));
       const key = d.toISOString().slice(0, 10);
-      byDay.set(key, { day: key, calories: 0, protein: 0, carbs: 0, fat: 0 });
+      byDay.set(key, { day: key, calories: 0, protein: 0, carbs: 0, fat: 0, loggedItems: 0 });
     }
 
     for (const l of logs) {
@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
       acc.protein += l.protein ?? 0;
       acc.carbs += l.carbs ?? 0;
       acc.fat += l.fat ?? 0;
+      acc.loggedItems += 1;
     }
 
     const series = Array.from(byDay.values());
