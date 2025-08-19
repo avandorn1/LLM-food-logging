@@ -7,7 +7,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const userId = Number(searchParams.get("userId") || 1);
     const dayParam = searchParams.get("day");
-    const base = dayParam ? new Date(`${dayParam}T00:00:00`) : new Date();
+    // Use Eastern Time for date calculations
+  const now = new Date();
+  const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
+  const base = dayParam ? new Date(`${dayParam}T00:00:00`) : easternDate;
     const start = startOfDay(base);
     const end = addDays(start, 1);
 

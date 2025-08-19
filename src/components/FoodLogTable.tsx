@@ -24,12 +24,15 @@ export default function FoodLogTable() {
   const [loading, setLoading] = useState(false);
   const [goal, setGoal] = useState<Goal>(null);
   const [confirmId, setConfirmId] = useState<number | null>(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   async function load() {
     setLoading(true);
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      // Use Eastern Time for date calculations
+  const now = new Date();
+  const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
+  const today = easternDate.toISOString().slice(0, 10);
       const [logsRes, goalsRes] = await Promise.all([
         fetch(`/api/logs?day=${today}`, { cache: "no-store" }),
         fetch(`/api/goals`, { cache: "no-store" }),

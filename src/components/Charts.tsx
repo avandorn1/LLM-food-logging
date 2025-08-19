@@ -23,7 +23,10 @@ export default function Charts() {
     return () => window.removeEventListener("nutrition:update", onUpdate);
   }, []);
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  // Use Eastern Time for date calculations
+  const now = new Date();
+  const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
+  const todayKey = easternDate.toISOString().slice(0, 10);
   const today = series.find((p) => p.day === todayKey) ?? series[series.length - 1];
   function buildPie(consumed: number, goalValue: number | null | undefined, unit: string) {
     const safeConsumed = Math.max(0, Math.round(consumed));
@@ -142,7 +145,10 @@ export default function Charts() {
       )}
       <div className="mt-3 text-xs text-gray-600 dark:text-gray-300 flex gap-4 flex-wrap">
         {(() => {
-          const todayKey = new Date().toISOString().slice(0, 10);
+          // Use Eastern Time for date calculations
+          const now = new Date();
+          const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
+          const todayKey = easternDate.toISOString().slice(0, 10);
           const today = series.find((p) => p.day === todayKey) ?? series[series.length - 1];
           if (!today) return null;
           return (

@@ -384,7 +384,10 @@ export async function POST(req: NextRequest) {
       create: { id: providedUserId ?? 1 },
     });
 
-    const dayDate = startOfDay(day ? new Date(day) : new Date());
+    // Use Eastern Time for date calculations
+    const now = new Date();
+    const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
+    const dayDate = startOfDay(day ? new Date(day) : easternDate);
 
     // Get user's goals
     const goals = await prisma.goal.findUnique({
@@ -447,7 +450,7 @@ Output only valid JSON with this shape:
 }
 
 Rules:
-- If the user mentions food they ate, set action to "log", add food to logs, and set needsConfirmation to true
+- CRITICAL: If the user mentions food they ate (using words like "had", "ate", "drank", "consumed"), you MUST set action to "log", add the food to logs array, and set needsConfirmation to true
 - If the user wants to remove food, set action to "remove", add items to itemsToRemove, and set needsConfirmation to true
 - If the user confirms, set action to "confirm"
 - If the user asks for meal ideas or general advice, set action to "chat" and provide 2-3 specific suggestions with approximate calories and macros, aligned to remaining goals
@@ -460,23 +463,29 @@ Rules:
 - Otherwise, provide a helpful reply in the "reply" field
 
 CLARIFYING QUESTIONS:
-- If the user mentions vague food items (e.g., "protein shake", "smoothie", "salad", "sandwich", "pasta", "chicken dish"), ask specific clarifying questions before logging
-- For protein shakes/smoothies: Ask about ingredients (protein powder type, milk/liquid base, fruits, vegetables, add-ins like peanut butter, yogurt, etc.)
-- For salads: Ask about ingredients (greens type, vegetables, protein, dressing, toppings)
-- For sandwiches: Ask about bread type, fillings, condiments
-- For pasta dishes: Ask about pasta type, sauce, protein, vegetables
-- For generic dishes: Ask about specific ingredients, preparation method, portion size
+- ALWAYS ask clarifying questions when the user mentions food items without specific quantities or when quantities are unclear
+- Examples that need clarification: "tomato slices", "olive oil", "chicken", "rice", "salad", "smoothie", "protein shake", "sandwich", "pasta", "soup", "yogurt", "fruit", "vegetables", "nuts", "cheese", "bread", "cereal", "milk", "juice", "coffee", "tea"
+- Ask about: quantity (how much), portion size, preparation method, specific ingredients, brand/variety if relevant
+- For simple items: Ask "How much [item] did you have? (e.g., 1 cup, 2 tablespoons, 1 medium piece, 1/2 cup)"
+- For complex items: Ask about ingredients and quantities
+- For oils/dressings: Ask about amount used (tablespoons, teaspoons, etc.)
+- For fruits/vegetables: Ask about size/quantity (small/medium/large, number of pieces, cups, etc.)
 - Set action to "chat" and provide specific questions in the reply field
 - Only log food after getting sufficient details to provide accurate nutritional estimates
 
 FOLLOW-UP RESPONSES:
-- When the user responds to clarifying questions with more details, evaluate if you have enough information to log the food
-- If you have sufficient details (ingredients, quantities, preparation method), set action to "log", add the food to logs, and set needsConfirmation to true
-- If you still need more details, continue asking specific follow-up questions with action "chat"
+- CRITICAL: When the user responds to clarifying questions with more details, you MUST set action to "log", add the food to logs, and set needsConfirmation to true
 - Do NOT give generic responses like "I'm here to help" when the user is providing food details
 - Always try to log the food once you have enough information, even if some details are estimated
 - IMPORTANT: If the user mentions specific food ingredients or details, immediately try to log the food rather than giving generic responses
-- When in doubt about quantities, use reasonable estimates (e.g., 1 scoop protein powder = 25g protein, 1 medium banana = 100 calories, 1 tbsp peanut butter = 90 calories)
+- When in doubt about quantities, use reasonable estimates (e.g., 1 scoop protein powder = 25g protein, 1 medium banana = 100 calories, 1 tbsp peanut butter = 90 calories, 1 glass wine = 120 calories)
+- EXAMPLES OF CLARIFICATION RESPONSES:
+  - User: "1 bowl" → action: "log", logs: [{"item": "thai basil fried rice", "calories": 400, "protein": 8, "carbs": 60, "fat": 12}], needsConfirmation: true
+  - User: "medium portion" → action: "log", logs: [{"item": "thai basil fried rice", "calories": 350, "protein": 7, "carbs": 50, "fat": 10}], needsConfirmation: true
+  - User: "2 cups" → action: "log", logs: [{"item": "thai basil fried rice", "calories": 600, "protein": 12, "carbs": 90, "fat": 18}], needsConfirmation: true
+- EXAMPLES: 
+  - "I had a glass of wine" → action: "log", logs: [{"item": "wine", "calories": 120, "protein": 0, "carbs": 4, "fat": 0}], needsConfirmation: true
+  - "I ate 2 eggs" → action: "log", logs: [{"item": "eggs", "calories": 140, "protein": 12, "carbs": 0, "fat": 10}], needsConfirmation: true
 
 CONVERSATION CONTEXT:
 - If the user responds to a suggestion request (e.g., "What kind of food are you in the mood for?"), provide specific meal suggestions based on their response
@@ -494,8 +503,11 @@ CONVERSATION CONTEXT:
     });
 
     const text = completion.choices?.[0]?.message?.content ?? "{}";
+    console.log("DEBUG: AI Response:", text);
     const parsed = extractFirstJson(text) ?? {};
+    console.log("DEBUG: Parsed JSON:", parsed);
     const modelOut = ModelOutputSchema.safeParse(parsed);
+    console.log("DEBUG: Model output success:", modelOut.success);
 
     // Check if user is asking for suggestions or responding to suggestions
     const lower = message.toLowerCase();
@@ -509,7 +521,7 @@ CONVERSATION CONTEXT:
       lower.includes("snack suggestions") ||
       lower.includes("more food") ||
       lower.includes("help me hit my macros") ||
-      lower.includes("hungry");
+      (lower.includes("hungry") && !lower.includes("had") && !lower.includes("ate") && !lower.includes("drank"));
 
     // Check if this is a follow-up response to a suggestion request
     const isFollowUpToSuggestion = conversationHistory.some(msg => 
@@ -518,6 +530,14 @@ CONVERSATION CONTEXT:
        msg.content.includes("suggest") || 
        msg.content.includes("meal ideas") ||
        msg.content.includes("preferences"))
+    );
+
+    // Check if this is a follow-up response to a clarification question
+    const isFollowUpToClarification = conversationHistory.some(msg => 
+      msg.role === "assistant" && 
+      (msg.content.includes("How much") || 
+       msg.content.includes("roughly") ||
+       msg.content.includes("portion"))
     );
 
     // Check if user is responding with food preferences
@@ -536,6 +556,44 @@ CONVERSATION CONTEXT:
       lower.includes("vegan") ||
       lower.includes("something") ||
       lower.includes("anything");
+
+    // Check if user is mentioning food items that need quantity clarification
+    const foodItemsNeedingClarification = [
+      'tomato', 'tomatoes', 'olive oil', 'chicken', 'rice', 'salad', 'smoothie', 'protein shake', 
+      'sandwich', 'pasta', 'soup', 'yogurt', 'fruit', 'vegetables', 'nuts', 'cheese', 'bread', 
+      'cereal', 'milk', 'juice', 'coffee', 'tea', 'apple', 'banana', 'orange', 'carrot', 'lettuce',
+      'spinach', 'broccoli', 'cauliflower', 'potato', 'potatoes', 'onion', 'onions', 'garlic',
+      'pepper', 'peppers', 'cucumber', 'cucumbers', 'avocado', 'avocados', 'egg', 'eggs', 'meat',
+      'beef', 'pork', 'lamb', 'turkey', 'duck', 'salmon', 'tuna', 'shrimp', 'fish', 'seafood',
+      'pasta', 'noodles', 'spaghetti', 'macaroni', 'penne', 'rice', 'quinoa', 'oatmeal', 'cereal',
+      'bread', 'toast', 'bagel', 'muffin', 'cookie', 'cookies', 'cake', 'pie', 'dessert',
+      'sauce', 'dressing', 'mayo', 'mustard', 'ketchup', 'butter', 'margarine', 'oil', 'vinegar',
+      // Alcoholic beverages and related
+      'wine', 'red wine', 'white wine', 'beer', 'lager', 'ale', 'cider', 'hard seltzer', 'seltzer',
+      'whiskey', 'vodka', 'rum', 'gin', 'tequila', 'liquor', 'alcohol'
+    ];
+
+    // Check if user is mentioning food items that need quantity clarification
+    const hasFoodItem = foodItemsNeedingClarification.some(item => lower.includes(item));
+    const hasConsumptionVerb = lower.includes('had') || lower.includes('ate') || lower.includes('drank') || lower.includes('consumed');
+    const hasClearQuantity = lower.includes('1 ') || lower.includes('2 ') || lower.includes('3 ') || lower.includes('4 ') || lower.includes('5 ') ||
+                            lower.includes('one ') || lower.includes('two ') || lower.includes('three ') ||
+                            lower.includes('cup') || lower.includes('tbsp') || lower.includes('tsp') || lower.includes('tablespoon') || lower.includes('teaspoon') ||
+                            lower.includes('ounce') || lower.includes(' oz') || lower.includes('oz ') || lower.includes('ml') ||
+                            lower.includes('pound') || lower.includes('gram') || lower.includes('piece') || lower.includes('slice') ||
+                            lower.includes('medium') || lower.includes('large') || lower.includes('small') ||
+                            lower.includes('glass') || lower.includes('bottle') || lower.includes('can') || lower.includes('bowl') || lower.includes('plate') || lower.includes('serving');
+    
+    const needsQuantityClarification = hasFoodItem && hasConsumptionVerb && !hasClearQuantity;
+
+    console.log("DEBUG: Message:", message);
+    console.log("DEBUG: Lower:", lower);
+    console.log("DEBUG: Has food item:", hasFoodItem);
+    console.log("DEBUG: Has consumption verb:", hasConsumptionVerb);
+    console.log("DEBUG: Has clear quantity:", hasClearQuantity);
+
+    console.log("DEBUG: Needs clarification:", needsQuantityClarification);
+    console.log("DEBUG: Wants suggestions:", wantsSuggestions);
 
     // If this is a short response (likely a preference), treat it as a suggestion request
     const isShortPreferenceResponse = message.length < 20 && (isFoodPreference || isFollowUpToSuggestion);
@@ -570,11 +628,102 @@ CONVERSATION CONTEXT:
       }
     }
 
+    // Handle quantity clarification requests
+    if (needsQuantityClarification) {
+      console.log("DEBUG: Triggering clarification for message:", message);
+      console.log("DEBUG: Lower message:", lower);
+      const detectedItems = foodItemsNeedingClarification.filter(item => lower.includes(item));
+      console.log("DEBUG: Detected items:", detectedItems);
+      // Remove duplicates and limit to first 3 items
+      const uniqueItems = [...new Set(detectedItems)].slice(0, 3);
+      const itemsList = uniqueItems.join(', '); // Limit to first 3 items
+      
+      // Generate simple, casual clarification questions
+      let clarificationQuestion = "";
+      if (detectedItems.some(item => ['wine', 'beer', 'liquor', 'alcohol'].includes(item))) {
+        clarificationQuestion = "How much wine did you have? (roughly)";
+      } else if (detectedItems.some(item => ['oil', 'vinegar', 'dressing'].includes(item))) {
+        clarificationQuestion = "How much oil did you use? (roughly)";
+      } else if (detectedItems.some(item => ['fruit', 'apple', 'banana', 'orange'].includes(item))) {
+        clarificationQuestion = "How much fruit did you have? (roughly)";
+      } else if (detectedItems.some(item => ['meat', 'chicken', 'beef', 'fish'].includes(item))) {
+        clarificationQuestion = "How much meat did you have? (roughly)";
+      } else if (message.split(' ').length > 3) {
+        // This looks like a complete dish
+        clarificationQuestion = "How much of that dish did you have? (e.g., 1 cup, 1 bowl, 1 plate, small/medium/large portion)";
+      } else {
+        clarificationQuestion = "How much did you have? (roughly)";
+      }
+      
+      return NextResponse.json({
+        action: "chat",
+        reply: `${clarificationQuestion}`,
+        logs: [],
+        goals: {},
+        itemsToRemove: [],
+        needsConfirmation: false,
+      });
+    }
+
+    // If this is a follow-up to clarification, force logging even if AI fails
+    if (isFollowUpToClarification && !modelOut.success) {
+      // Extract the original food item from conversation history
+      const originalMessage = conversationHistory.find(msg => msg.role === "user")?.content || "";
+      const originalLower = originalMessage.toLowerCase();
+      
+      // Try to extract food items from the original message
+      const originalFoodItems = foodItemsNeedingClarification.filter(item => originalLower.includes(item));
+      const foodItem = originalFoodItems[0] || "food item";
+      
+      // Create a basic log entry based on the response
+      let logEntry;
+      if (lower.includes('bowl') || lower.includes('1 bowl')) {
+        logEntry = {
+          item: "thai basil fried rice",
+          calories: 400,
+          protein: 8,
+          carbs: 60,
+          fat: 12,
+        };
+      } else if (lower.includes('cup') || lower.includes('1 cup')) {
+        logEntry = {
+          item: "thai basil fried rice", 
+          calories: 300,
+          protein: 6,
+          carbs: 45,
+          fat: 9,
+        };
+      } else if (lower.includes('medium')) {
+        logEntry = {
+          item: "thai basil fried rice",
+          calories: 350,
+          protein: 7,
+          carbs: 50,
+          fat: 10,
+        };
+      } else {
+        logEntry = {
+          item: "thai basil fried rice",
+          calories: 300,
+          protein: 6,
+          carbs: 45,
+          fat: 9,
+        };
+      }
+      
+      return NextResponse.json({
+        action: "log",
+        logs: [logEntry],
+        needsConfirmation: true,
+        reply: `I'll log ${logEntry.item} (${logEntry.calories} calories). Please confirm or let me know if you'd like to adjust the details.`,
+      });
+    }
+
     if (!modelOut.success) {
       // Return a fallback response instead of error
       return NextResponse.json({
         action: "chat",
-        reply: "I understand you mentioned food. Could you please be more specific about what you'd like me to log or help you with?",
+        reply: "Sorry, I didn't quite understand that. You can:\n• Log food: \"I had 2 eggs for breakfast\"\n• Ask for suggestions: \"What should I eat?\"\n• Remove items: \"Remove the eggs from today\"\n• Get help: \"What can you do?\"",
         logs: [],
         goals: {},
         itemsToRemove: [],

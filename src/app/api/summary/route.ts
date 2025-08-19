@@ -9,7 +9,10 @@ export async function GET(req: NextRequest) {
     const userId = Number(searchParams.get("userId") || 1);
     const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 7;
 
-    const end = startOfDay(new Date());
+    // Use Eastern Time for date calculations
+  const now = new Date();
+  const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
+  const end = startOfDay(easternDate);
     const start = startOfDay(subDays(end, days - 1));
 
     const [logs, goal] = await Promise.all([
