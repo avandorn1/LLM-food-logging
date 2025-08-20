@@ -14,6 +14,9 @@ export default function GoalsPage() {
           </p>
         </div>
       </div>
+      
+      {/* Bottom Blur Effect - Fixed to Viewport */}
+      <div className="fixed bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/60 to-transparent pointer-events-none z-10"></div>
     </div>
   );
 }
