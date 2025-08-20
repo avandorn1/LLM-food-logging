@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, ReferenceArea } from "recharts";
 
 interface DayData {
   day: string;
@@ -132,7 +132,6 @@ export default function ProgressDashboard() {
 
   return (
     <div className="w-full max-w-6xl mx-auto p-6">
-      <div className="text-2xl font-bold mb-6">Progress Dashboard</div>
       
       {/* Disclaimer */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -150,22 +149,22 @@ export default function ProgressDashboard() {
       </div>
       
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white border rounded-lg p-4">
-          <div className="text-sm text-gray-600">Days Logged</div>
-          <div className="text-2xl font-bold">{stats?.totalDaysLogged || 0}/14</div>
-        </div>
-        <div className="bg-white border rounded-lg p-4">
-          <div className="text-sm text-gray-600">Avg Calories</div>
-          <div className="text-2xl font-bold">{stats?.averageCalories || 0}</div>
-        </div>
-        <div className="bg-white border rounded-lg p-4">
-          <div className="text-sm text-gray-600">Total Items</div>
-          <div className="text-2xl font-bold">{stats?.totalItemsLogged || 0}</div>
-        </div>
-        <div className="bg-white border rounded-lg p-4">
-          <div className="text-sm text-gray-600">Days in Sweet Spot</div>
-          <div className="text-2xl font-bold">{stats?.goalConsistency || 0}%</div>
+      <div className="grid grid-cols-1 gap-4 mb-8">
+        <div className="bg-white border rounded-lg p-6">
+          <div className="text-lg font-semibold mb-4">Days Logged ({stats?.totalDaysLogged || 0}/14)</div>
+          <div className="grid grid-cols-7 gap-3">
+            {data.map((day, index) => (
+              <div
+                key={index}
+                className={`w-10 h-10 rounded-lg border-2 shadow-sm transition-all duration-200 hover:scale-110 ${
+                  day.calories > 0 
+                    ? 'bg-gradient-to-br from-green-400 to-green-600 border-green-500 shadow-green-200' 
+                    : 'bg-gradient-to-br from-gray-100 to-gray-200 border-gray-300 shadow-gray-100'
+                }`}
+                title={`${day.day}: ${day.calories > 0 ? 'Logged' : 'Not logged'}`}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -173,13 +172,28 @@ export default function ProgressDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Calorie Trend */}
         <div className="bg-white border rounded-lg p-6">
-          <div className="text-lg font-semibold mb-4">Calorie Trend (14 Days)</div>
+          <div className="text-lg font-semibold mb-4">Calories Logged</div>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
+              <XAxis 
+                dataKey="day" 
+                angle={-45}
+                textAnchor="end"
+                height={60}
+                interval={0}
+              />
+              <YAxis domain={[0, goals?.targetCalories ? goals.targetCalories * 1.3 : 'auto']} />
               <Tooltip />
+              {goals?.targetCalories && (
+                <ReferenceArea 
+                  y1={goals.targetCalories * 0.9} 
+                  y2={goals.targetCalories * 1.1} 
+                  fill="#22c55e" 
+                  fillOpacity={0.2}
+                  ifOverflow="visible"
+                />
+              )}
               <Line type="monotone" dataKey="calories" stroke="#3b82f6" strokeWidth={2} />
               {goals?.targetCalories && (
                 <Line 
@@ -197,7 +211,7 @@ export default function ProgressDashboard() {
 
         {/* Macro Distribution */}
         <div className="bg-white border rounded-lg p-6">
-          <div className="text-lg font-semibold mb-4">Average Macro Distribution</div>
+          <div className="text-lg font-semibold mb-4">Macro Trends</div>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -256,8 +270,8 @@ export default function ProgressDashboard() {
           {/* Goals Display */}
           {goals && (goals.targetProtein || goals.targetCarbs || goals.targetFat) && (
             <div className="mt-6 pt-4 border-t border-gray-200">
-              <div className="text-sm font-medium text-gray-700 mb-2">Your Goals:</div>
-              <div className="flex justify-center gap-4 text-sm">
+              <div className="flex items-center gap-4 text-sm">
+                <div className="font-medium text-gray-700">Your Goals:</div>
                 <span>Protein: {(() => {
                   const total = (goals.targetProtein || 0) + (goals.targetCarbs || 0) + (goals.targetFat || 0);
                   return total > 0 ? Math.round(((goals.targetProtein || 0) / total) * 100) : 0;

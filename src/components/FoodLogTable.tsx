@@ -25,7 +25,6 @@ export default function FoodLogTable() {
   const [goal, setGoal] = useState<Goal>(null);
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(true);
-  const [isDoneLogging, setIsDoneLogging] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -110,9 +109,9 @@ export default function FoodLogTable() {
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
-          <thead className={isCollapsed ? "hidden" : ""}>
+          <thead>
             <tr className="text-left border-b">
-              <th className="py-2 pr-3">Item</th>
+              <th className="py-2 pr-3"></th>
               <th className="py-2 pr-3 text-right">Calories</th>
               <th className="py-2 pr-3 text-right">Protein</th>
               <th className="py-2 pr-3 text-right">Carbs</th>
@@ -168,42 +167,7 @@ export default function FoodLogTable() {
         </table>
       </div>
       
-      {/* Done Logging Button */}
-      <div className="mt-4">
-        <button 
-          onClick={async () => {
-            try {
-              const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  message: 'done for today',
-                  userId: 1,
-                  conversationHistory: []
-                })
-              });
-              const data = await response.json();
-              if (data.reply) {
-                // Show the summary and disable logging
-                alert(data.reply);
-                setIsDoneLogging(true);
-                // Dispatch event to disable chat
-                window.dispatchEvent(new CustomEvent("done-logging"));
-              }
-            } catch (error) {
-              console.error('Error sending done message:', error);
-            }
-          }}
-          disabled={isDoneLogging}
-          className={`w-full px-4 py-3 rounded-lg font-medium transition-colors ${
-            isDoneLogging 
-              ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-              : 'bg-green-600 text-white hover:bg-green-700'
-          }`}
-        >
-          {isDoneLogging ? '✅ Done for Today' : '✅ Done Logging for Today'}
-        </button>
-      </div>
+
       
       {confirmId != null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">

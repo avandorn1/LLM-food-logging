@@ -42,6 +42,62 @@ export async function GET(req: NextRequest) {
   }
 }
 
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { logs, userId = 1, day } = body;
+
+    if (!logs || !Array.isArray(logs) || logs.length === 0) {
+      return NextResponse.json({ error: "No logs provided" }, { status: 400 });
+    }
+
+    // Use Eastern Time for date calculations
+    const now = new Date();
+    const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
+    const dayDate = startOfDay(day ? new Date(day) : easternDate);
+
+    // Ensure user exists
+    const user = await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: { id: userId },
+    });
+
+    // Log all items
+    const createdLogs = await prisma.$transaction(
+      logs.map((log) =>
+        prisma.foodLog.create({
+          data: {
+            userId: user.id,
+            day: dayDate,
+            item: log.item,
+            mealType: log.mealType,
+            quantity: log.quantity,
+            unit: log.unit,
+            calories: log.calories ? Math.round(log.calories) : null,
+            protein: log.protein ?? null,
+            carbs: log.carbs ?? null,
+            fat: log.fat ?? null,
+            fiber: log.fiber ?? null,
+            sugar: log.sugar ?? null,
+            sodium: log.sodium ?? null,
+            notes: log.notes ?? null,
+          },
+        })
+      )
+    );
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Successfully logged ${logs.length} item(s)`,
+      logs: createdLogs 
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unexpected error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json();

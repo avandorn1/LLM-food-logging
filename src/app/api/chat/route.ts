@@ -495,18 +495,43 @@ Output only valid JSON with this shape:
   "reply"?: string
 }
 
-EXAMPLE: When logging food with confirmation, return exactly:
+EXAMPLES: 
+
+For simple, single items (direct logging):
 {
   "action": "log",
   "logs": [
-    {"item": "soba noodles", "quantity": 1.5, "unit": "cups", "calories": 210, "protein": 8, "carbs": 45, "fat": 1}
+    {"item": "apple", "quantity": 1, "unit": "medium", "calories": 95, "protein": 0, "carbs": 25, "fat": 0}
+  ],
+  "needsConfirmation": false,
+  "reply": "Logged 1 medium apple (95 cal, 0g protein, 25g carbs, 0g fat)."
+}
+
+For multiple items (confirmation required):
+{
+  "action": "log",
+  "logs": [
+    {"item": "soba noodles", "quantity": 1.5, "unit": "cups", "calories": 210, "protein": 8, "carbs": 45, "fat": 1},
+    {"item": "tofu", "quantity": 4, "unit": "oz", "calories": 80, "protein": 10, "carbs": 2, "fat": 4}
+  ],
+  "needsConfirmation": true,
+  "reply": ""
+}
+
+For nutrition feedback (update and confirm):
+{
+  "action": "log",
+  "logs": [
+    {"item": "bread", "quantity": 2, "unit": "pieces", "calories": 26.5, "protein": 4, "carbs": 20, "fat": 8}
   ],
   "needsConfirmation": true,
   "reply": ""
 }
 
 Rules:
-- If the user mentions food they ate (using words like "had", "ate", "drank", "consumed"), set action to "log", add the food to logs array, and set needsConfirmation to true
+- If the user mentions food they ate (using words like "had", "ate", "drank", "consumed"), set action to "log", add the food to logs array
+- For simple, single food items with clear nutrition data, set needsConfirmation to false and log directly
+- For multiple items or complex meals, set needsConfirmation to true to show the complete list
 - If you have enough information to provide accurate nutrition estimates, include calories, protein, carbs, and fat in the log entry
 - If you need more information to provide accurate estimates, set action to "chat" and ask specific clarifying questions in the reply field
 - If the user wants to remove food, set action to "remove", add items to itemsToRemove, and set needsConfirmation to true
@@ -514,9 +539,11 @@ Rules:
 CRITICAL: When needsConfirmation is true, you MUST leave the reply field completely empty. The system will auto-generate the confirmation message and show confirmation buttons.
 
 LOGGING ACTIONS:
-- When logging food items, set action to "log", include the logs array with nutrition data, and set needsConfirmation to true
+- When logging simple, single food items with clear nutrition data, set action to "log", include the logs array, and set needsConfirmation to false for direct logging
+- When logging multiple items or complex meals, set action to "log", include the logs array, and set needsConfirmation to true to show the complete list
 - When needsConfirmation is true, leave reply field completely empty
-- The system will automatically generate the confirmation message with food details and totals
+- When needsConfirmation is false, provide a brief confirmation message in the reply field
+- The system will automatically generate detailed confirmation messages when needsConfirmation is true
 - IMPORTANT: If the user mentions multiple food items in the conversation before confirming, accumulate ALL items and show the complete list in the confirmation message
 - For example: If user says "I had eggs and toast" then adds "and coffee", show all 3 items (eggs, toast, coffee) in the confirmation
 
@@ -579,9 +606,17 @@ CRITICAL JSON RULES:
 CONFIRMATION HANDLING:
 - When the user responds in the affirmative (e.g., "yes", "confirm", "ok", "sure", "yep", "yeah", "correct", "right", "that's right", "add it", "log it"), set action to "confirm" and leave reply empty
 - When the user responds in the negative (e.g., "no", "cancel", "don't", "nope", "nah", "wrong", "incorrect", "remove it", "delete it"), set action to "chat" and provide a helpful response like "No problem, I won't log that. What else can I help you with?"
+- When the user provides nutrition feedback (e.g., "it says 26.5 cal for 2 pieces 4g protein 20g carb 8g fat"), set action to "log", update the nutrition data with their feedback, and set needsConfirmation to false for direct logging
 - When the user asks for meal suggestions, set action to "chat" and provide helpful suggestions in the reply field
 - When needsConfirmation is true, leave reply empty (it will be auto-filled by the system)
 - Otherwise, provide a helpful reply in the "reply" field
+
+NUTRITION FEEDBACK HANDLING:
+- When users provide nutrition feedback (e.g., "it says 26.5 cal for 2 pieces 4g protein 20g carb 8g fat"), parse their feedback and update the nutrition data
+- Extract calories, protein, carbs, fat, and quantity from their feedback
+- Update the log entry with their corrected nutrition data
+- Set needsConfirmation to true to show the updated nutrition data for confirmation
+- Leave reply empty - the system will auto-generate the confirmation message with updated data
 
 IMPORTANT: When confirming food items, you MUST include the exact same logs array that was previously shown for confirmation. Do not return empty logs when confirming.
 
@@ -722,6 +757,61 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
         }
       }
       
+      // Check if this looks like nutrition feedback
+      const nutritionFeedbackPattern = /(\d+(?:\.\d+)?)\s*cal.*?(\d+(?:\.\d+)?)\s*g\s*protein.*?(\d+(?:\.\d+)?)\s*g\s*carbs.*?(\d+(?:\.\d+)?)\s*g\s*fat/i;
+      const feedbackMatch = text.match(nutritionFeedbackPattern);
+      
+      if (feedbackMatch) {
+        console.log("DEBUG: Detected nutrition feedback, parsing...");
+        const [, calories, protein, carbs, fat] = feedbackMatch;
+        
+        // Try to extract quantity and item from the message
+        const quantityMatch = text.match(/(\d+(?:\.\d+)?)\s*(pieces?|slices?|cups?|tbsp|tablespoons?|oz|ounces?|grams?|g)/i);
+        const quantity = quantityMatch ? parseFloat(quantityMatch[1]) : 1;
+        const unit = quantityMatch ? quantityMatch[2] : "serving";
+        
+        // Try to extract the food item from the previous conversation
+        const previousMessage = conversationHistory[conversationHistory.length - 1];
+        let foodItem = "food item";
+        if (previousMessage && previousMessage.role === "assistant" && previousMessage.content.includes("cal,")) {
+          // Extract item name from the previous confirmation message
+          const itemMatch = previousMessage.content.match(/^-\s+([^(]+?)\s*\(/);
+          if (itemMatch) {
+            foodItem = itemMatch[1].trim();
+          }
+        }
+        
+        return NextResponse.json({
+          action: "log",
+          logs: [{
+            item: foodItem,
+            quantity: quantity,
+            unit: unit,
+            calories: parseFloat(calories),
+            protein: parseFloat(protein),
+            carbs: parseFloat(carbs),
+            fat: parseFloat(fat)
+          }],
+          needsConfirmation: true,
+          reply: "",
+          goals: {},
+          itemsToRemove: []
+        });
+      }
+      
+      // Check if this looks like a confirmation response
+      if (text.toLowerCase().includes("confirmed") || text.toLowerCase().includes("added") || text.toLowerCase().includes("logged")) {
+        console.log("DEBUG: Detected confirmation response, returning as chat");
+        return NextResponse.json({
+          action: "chat",
+          reply: text.trim(),
+          logs: [],
+          goals: {},
+          itemsToRemove: [],
+          needsConfirmation: false,
+        });
+      }
+      
       if (text.includes("?") || text.toLowerCase().includes("how much") || text.toLowerCase().includes("quantity")) {
         // This looks like a clarification question, return it properly
         console.log("DEBUG: Returning clarification question as proper response");
@@ -791,7 +881,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
         'about how much', 'i need to know', 'i\'m here to help', 'you can ask me',
         'i understand', 'no problem', 'i won\'t log', 'what else can i help',
         'please let me know', 'which entry', 'what changes', 'edit', 'modify', 'update',
-        'remove', 'delete', 'change', 'adjust', 'correct'
+        'remove', 'delete', 'change', 'adjust', 'correct', 'confirmed', 'added', 'logged'
       ];
       const isAiResponse = aiResponseKeywords.some(keyword => lowerText.includes(keyword));
       

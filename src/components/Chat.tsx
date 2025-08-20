@@ -110,17 +110,22 @@ export default function Chat() {
               onClick={async () => {
                 setLoading(true);
                 try {
-                  const res = await fetch("/api/chat", {
+                  // Directly log the items without going through the chat API
+                  const res = await fetch("/api/logs", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ 
-                      message: "yes, confirm",
-                      conversationHistory: messages.map(m => ({ role: m.role, content: m.content }))
+                      logs: pendingAction.logs || []
                     }),
                   });
                   const data = await res.json();
-                  const reply: string = data?.reply ?? "";
-                  setMessages((m) => [...m, { role: "user", content: "yes, confirm" }, { role: "assistant", content: reply }]);
+                  
+                  if (data.success) {
+                    setMessages((m) => [...m, { role: "user", content: "yes, confirm" }, { role: "assistant", content: data.message }]);
+                  } else {
+                    setMessages((m) => [...m, { role: "user", content: "yes, confirm" }, { role: "assistant", content: "Error logging items. Please try again." }]);
+                  }
+                  
                   setPendingAction(null);
                   try { window.dispatchEvent(new CustomEvent("nutrition:update")); } catch {}
                 } catch (e: unknown) {

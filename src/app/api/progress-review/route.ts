@@ -27,8 +27,9 @@ export async function GET(req: NextRequest) {
     // Use Eastern Time for date calculations
     const now = new Date();
     const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
-    const end = startOfDay(easternDate);
-    const start = startOfDay(subDays(end, 7)); // Last 7 days
+    const today = startOfDay(easternDate);
+    const end = startOfDay(today); // Today (end of analysis period - exclusive)
+    const start = startOfDay(subDays(end, 7)); // 7 days before today (start of analysis period)
 
     const recentLogs = await prisma.foodLog.findMany({
       where: {
@@ -41,20 +42,23 @@ export async function GET(req: NextRequest) {
       orderBy: { loggedAt: "asc" },
     });
 
-    // Group logs by day
+
+
+    // Group logs by day - simpler approach
     const logsByDay = new Map();
-    for (let i = 0; i < 7; i++) {
-      const day = startOfDay(subDays(end, 6 - i));
-      const key = day.toISOString().slice(0, 10);
-      logsByDay.set(key, []);
+    
+    for (const log of recentLogs) {
+      // Use day field if available, otherwise fall back to loggedAt
+      const logDate = log.day || log.loggedAt;
+      const key = logDate.toISOString().slice(0, 10);
+      
+      if (!logsByDay.has(key)) {
+        logsByDay.set(key, []);
+      }
+      logsByDay.get(key).push(log);
     }
 
-    for (const log of recentLogs) {
-      const key = log.loggedAt.toISOString().slice(0, 10);
-      if (logsByDay.has(key)) {
-        logsByDay.get(key).push(log);
-      }
-    }
+
 
     // Calculate daily totals
     const dailyTotals = Array.from(logsByDay.entries()).map(([day, logs]) => {
@@ -70,19 +74,23 @@ export async function GET(req: NextRequest) {
       return { day, totals, logs };
     });
 
-    // Calculate averages
-    const nonZeroDays = dailyTotals.filter(d => d.totals.calories > 0);
-    const avgCalories = nonZeroDays.length > 0 ? Math.round(nonZeroDays.reduce((sum, d) => sum + d.totals.calories, 0) / nonZeroDays.length) : 0;
-    const avgProtein = nonZeroDays.length > 0 ? Math.round(nonZeroDays.reduce((sum, d) => sum + d.totals.protein, 0) / nonZeroDays.length) : 0;
-    const avgCarbs = nonZeroDays.length > 0 ? Math.round(nonZeroDays.reduce((sum, d) => sum + d.totals.carbs, 0) / nonZeroDays.length) : 0;
-    const avgFat = nonZeroDays.length > 0 ? Math.round(nonZeroDays.reduce((sum, d) => sum + d.totals.fat, 0) / nonZeroDays.length) : 0;
 
-    // Calculate consistency
+
+    // Calculate averages - consider any day with logging as complete
     const targetCalories = goals?.targetCalories || 2000;
-    const daysInSweetSpot = nonZeroDays.filter(d => 
+    const completeDays = dailyTotals.filter(d => d.totals.calories > 0);
+    const zeroDays = dailyTotals.filter(d => d.totals.calories === 0);
+    
+    const avgCalories = completeDays.length > 0 ? Math.round(completeDays.reduce((sum, d) => sum + d.totals.calories, 0) / completeDays.length) : 0;
+    const avgProtein = completeDays.length > 0 ? Math.round(completeDays.reduce((sum, d) => sum + d.totals.protein, 0) / completeDays.length) : 0;
+    const avgCarbs = completeDays.length > 0 ? Math.round(completeDays.reduce((sum, d) => sum + d.totals.carbs, 0) / completeDays.length) : 0;
+    const avgFat = completeDays.length > 0 ? Math.round(completeDays.reduce((sum, d) => sum + d.totals.fat, 0) / completeDays.length) : 0;
+
+    // Calculate consistency (only for complete days)
+    const daysInSweetSpot = completeDays.filter(d => 
       d.totals.calories >= targetCalories * 0.9 && d.totals.calories <= targetCalories * 1.1
     ).length;
-    const consistency = nonZeroDays.length > 0 ? Math.round((daysInSweetSpot / nonZeroDays.length) * 100) : 0;
+    const consistency = completeDays.length > 0 ? Math.round((daysInSweetSpot / completeDays.length) * 100) : 0;
 
     const client = getOpenAIClient();
     
@@ -95,28 +103,35 @@ Be positive and motivating, but realistic. Consider:
 - Specific food patterns or choices you notice
 - Areas where they're doing well and potential improvements
 
-Be specific and actionable. For example:
-- "You've been really consistent with logging 5 out of 7 days - that's awesome!"
-- "Your protein intake is averaging 45% which is perfect for your high-protein goals"
-- "I notice you're often under on calories - maybe try adding some healthy snacks"
-- "Great job hitting your sweet spot 3 days this week!"
+IMPORTANT: Do NOT mention specific calorie amounts, macro gram amounts, or exact percentages. Instead, give directional advice like:
+- "You're doing great with consistency - keep it up!"
+- "Your protein intake could use a boost - try adding more protein-rich foods"
+- "You're hitting your sweet spot regularly - excellent work!"
+- "Consider adding some healthy snacks to reach your targets"
+- "Your macro balance is looking good overall"
 
-Keep it conversational, warm, and encouraging. Focus on progress and building sustainable habits.`;
+Keep it conversational, warm, and encouraging. Focus on progress and building sustainable habits without getting into specific numbers.`;
 
-    const userPrompt = `User's nutrition data for the past 7 days:
-- Days logged: ${nonZeroDays.length}/7
+    const userPrompt = `User's nutrition data for the previous 7 days (excluding today):
+- Days with logging: ${completeDays.length}/7
+- Days with no logging: ${zeroDays.length}/7
 - Average calories: ${avgCalories} / ${goals?.targetCalories || 'not set'} target
 - Average protein: ${avgProtein}g / ${goals?.targetProtein || 'not set'}g target
 - Average carbs: ${avgCarbs}g / ${goals?.targetCarbs || 'not set'}g target
 - Average fat: ${avgFat}g / ${goals?.targetFat || 'not set'}g target
-- Days in sweet spot (90-110% of target): ${daysInSweetSpot}/${nonZeroDays.length} (${consistency}%)
+- Days in sweet spot (90-110% of target): ${daysInSweetSpot}/${completeDays.length} (${consistency}%)
 
 Recent food items: ${recentLogs.map(log => log.item).slice(0, 20).join(', ')}
 
 Daily breakdown:
-${dailyTotals.map(d => `- ${d.day}: ${d.totals.calories} cal, ${d.totals.protein}g protein, ${d.totals.carbs}g carbs, ${d.totals.fat}g fat`).join('\n')}
+${dailyTotals.map(d => {
+  const status = d.totals.calories > 0 ? '(logged)' : '(no logging)';
+  return `- ${d.day}: ${d.totals.calories} cal, ${d.totals.protein}g protein, ${d.totals.carbs}g carbs, ${d.totals.fat}g fat ${status}`;
+}).join('\n')}
 
 Generate a brief progress review:`;
+
+
 
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
