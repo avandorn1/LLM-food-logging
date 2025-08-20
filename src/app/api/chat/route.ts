@@ -789,14 +789,22 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
         'i\'ll log', 'i\'ll estimate', 'here\'s what', 'let me log', 'i\'m logging',
         'i detected', 'i see you', 'could you tell me', 'how much', 'roughly how much',
         'about how much', 'i need to know', 'i\'m here to help', 'you can ask me',
-        'i understand', 'no problem', 'i won\'t log', 'what else can i help'
+        'i understand', 'no problem', 'i won\'t log', 'what else can i help',
+        'please let me know', 'which entry', 'what changes', 'edit', 'modify', 'update',
+        'remove', 'delete', 'change', 'adjust', 'correct'
       ];
       const isAiResponse = aiResponseKeywords.some(keyword => lowerText.includes(keyword));
       
+      // Additional check: if the text is longer than 50 characters and contains multiple sentences, it's likely an AI response
+      const isLongResponse = text.length > 50 && (text.includes('.') || text.includes('!') || text.includes('?'));
+      const isLikelyAiResponse = isAiResponse || isLongResponse;
+      
       console.log("DEBUG: Is AI response:", isAiResponse);
+      console.log("DEBUG: Is long response:", isLongResponse);
+      console.log("DEBUG: Is likely AI response:", isLikelyAiResponse);
       console.log("DEBUG: AI response keywords found:", aiResponseKeywords.filter(keyword => lowerText.includes(keyword)));
       
-      if (hasQuantity && (hasFoodContext || hasFoodItem) && !isAiResponse) {
+      if (hasQuantity && (hasFoodContext || hasFoodItem) && !isLikelyAiResponse) {
         // This looks like a complete food logging request with quantity, try to extract and log it
         console.log("DEBUG: Detected complete food logging request with quantity, attempting to log");
         return NextResponse.json({
@@ -815,7 +823,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
           goals: {},
           itemsToRemove: []
         });
-      } else if (isInFoodLoggingContext && hasFoodItem && !isAiResponse) {
+      } else if (isInFoodLoggingContext && hasFoodItem && !isLikelyAiResponse) {
         // If we're in a food logging context and user mentions a food item, treat it as food logging
         console.log("DEBUG: Detected food item in food logging context, asking for quantity");
         console.log("DEBUG: In food logging context:", isInFoodLoggingContext);
@@ -828,7 +836,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
           itemsToRemove: [],
           needsConfirmation: false,
         });
-      } else if (hasFoodContext && hasFoodItem && !isAiResponse) {
+      } else if (hasFoodContext && hasFoodItem && !isLikelyAiResponse) {
         // This looks like a food logging request without quantity, ask for quantity
         console.log("DEBUG: Detected food logging request without quantity, asking for quantity");
         console.log("DEBUG: Has food context:", hasFoodContext);
@@ -841,7 +849,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
           itemsToRemove: [],
           needsConfirmation: false,
         });
-      } else if ((hasQuantity || hasQuantityLikePattern) && !isAiResponse) {
+      } else if ((hasQuantity || hasQuantityLikePattern) && !isLikelyAiResponse) {
         // This looks like a quantity response, ask for clarification about what food item
         console.log("DEBUG: Detected quantity response, asking for food item");
         return NextResponse.json({

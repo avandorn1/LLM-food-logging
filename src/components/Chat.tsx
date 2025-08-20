@@ -91,7 +91,6 @@ export default function Chat() {
 
   return (
     <div className="w-full border rounded-lg p-4 flex flex-col gap-3 h-[calc(100vh-12rem)]">
-              <div className="text-lg font-semibold">Chip Chat</div>
       <div ref={listRef} className="flex flex-col gap-2 flex-1 min-h-0 overflow-auto">
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "self-end bg-gray-100 dark:bg-gray-800 px-3 py-2 rounded-lg" : "self-start bg-blue-50 dark:bg-blue-900/30 px-3 py-2 rounded-lg"}>
