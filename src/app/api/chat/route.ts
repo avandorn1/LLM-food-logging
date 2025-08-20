@@ -166,6 +166,255 @@ export async function POST(req: NextRequest) {
       create: { id: providedUserId ?? 1 },
     });
 
+    // Check if this is a quantity response to a clarification question
+    const lowerMessage = message.toLowerCase();
+    const quantityKeywords = [
+      'tbsp', 'tablespoon', 'tbs', 'tbspn',
+      'cup', 'cups', 
+      'oz', 'ounce', 'ounces',
+      'gram', 'grams', 'g',
+      'handful', 'slice', 'piece', 'serving',
+      '1tbsp', '2tbsp', '1tbs', '2tbs',
+      '1cup', '2cup', '1cups', '2cups',
+      '1oz', '2oz', '1ounce', '2ounce'
+    ];
+    const hasQuantity = quantityKeywords.some(keyword => lowerMessage.includes(keyword));
+    
+    // Check if the previous message was asking for clarification
+    const previousMessage = conversationHistory[conversationHistory.length - 1];
+    const wasClarificationQuestion = previousMessage && 
+      previousMessage.role === "assistant" && 
+      (previousMessage.content.toLowerCase().includes("how much") ||
+       previousMessage.content.toLowerCase().includes("rough amount") ||
+       previousMessage.content.toLowerCase().includes("roughly how much") ||
+       previousMessage.content.toLowerCase().includes("about how much"));
+    
+    console.log("DEBUG: Pre-AI check analysis:");
+    console.log("DEBUG: User message:", message);
+    console.log("DEBUG: Has quantity keywords:", hasQuantity);
+    console.log("DEBUG: Previous message:", previousMessage?.content);
+    console.log("DEBUG: Was clarification question:", wasClarificationQuestion);
+    console.log("DEBUG: Message length:", message.length);
+    console.log("DEBUG: Contains 'i had':", message.toLowerCase().includes("i had"));
+    
+    // Only trigger if this is a short response (likely a quantity) to a clarification question
+    const isShortQuantityResponse = hasQuantity && 
+      wasClarificationQuestion && 
+      message.length < 50 && 
+      !message.toLowerCase().includes("i had") &&
+      !message.toLowerCase().includes("i ate") &&
+      !message.toLowerCase().includes("i drank");
+    
+    console.log("DEBUG: Is short quantity response:", isShortQuantityResponse);
+    
+    if (isShortQuantityResponse) {
+      console.log("DEBUG: Detected quantity response to clarification question");
+      console.log("DEBUG: User message:", message);
+      console.log("DEBUG: Previous message was clarification:", wasClarificationQuestion);
+      
+      // Extract the food item from the previous clarification question
+      const prevContent = previousMessage.content.toLowerCase();
+      let foodItem = "food item";
+      
+      if (prevContent.includes("yogurt")) foodItem = "yogurt";
+      else if (prevContent.includes("sauce")) foodItem = "sauce";
+      else if (prevContent.includes("rice")) foodItem = "rice";
+      else if (prevContent.includes("tofu")) foodItem = "tofu";
+      else if (prevContent.includes("noodles")) foodItem = "noodles";
+      else if (prevContent.includes("peppers")) foodItem = "peppers";
+      else if (prevContent.includes("mushrooms")) foodItem = "mushrooms";
+      
+      // Create a log entry with the quantity response
+      const logEntry = {
+        item: foodItem,
+        quantity: 1,
+        unit: "serving",
+        calories: undefined as number | undefined,
+        protein: undefined as number | undefined,
+        carbs: undefined as number | undefined,
+        fat: undefined as number | undefined
+      };
+      
+      // Try to extract more specific quantity info
+      if (lowerMessage.includes("tbsp") || lowerMessage.includes("tablespoon")) {
+        logEntry.unit = "tablespoon";
+        // Try multiple patterns to catch different formats
+        const patterns = [
+          /(\d+)\s*(tbsp|tablespoon)/,
+          /(\d+)\s*(tbs|tbspn)/,
+          /^(\d+)\s*tablespoon$/,
+          /^(\d+)\s*tbsp$/
+        ];
+        
+        for (const pattern of patterns) {
+          const match = lowerMessage.match(pattern);
+          if (match) {
+            logEntry.quantity = parseInt(match[1]);
+            break;
+          }
+        }
+        
+        // If no pattern matched, try to extract just the number
+        if (!logEntry.quantity) {
+          const numberMatch = lowerMessage.match(/(\d+)/);
+          if (numberMatch) {
+            logEntry.quantity = parseInt(numberMatch[1]);
+          }
+        }
+        
+        // Add nutrition estimates for common items
+        if (foodItem === "sauce") {
+          logEntry.calories = 30;
+          logEntry.protein = 0;
+          logEntry.carbs = 7;
+          logEntry.fat = 0;
+        } else if (foodItem === "yogurt") {
+          logEntry.calories = 15;
+          logEntry.protein = 1;
+          logEntry.carbs = 2;
+          logEntry.fat = 0;
+        }
+      } else if (lowerMessage.includes("cup")) {
+        logEntry.unit = "cup";
+        const match = lowerMessage.match(/(\d+(?:\.\d+)?)\s*cup/);
+        if (match) logEntry.quantity = parseFloat(match[1]);
+        
+        // Add nutrition estimates for common items
+        if (foodItem === "rice") {
+          logEntry.calories = 200;
+          logEntry.protein = 4;
+          logEntry.carbs = 45;
+          logEntry.fat = 0;
+        } else if (foodItem === "tofu") {
+          logEntry.calories = 180;
+          logEntry.protein = 20;
+          logEntry.carbs = 3;
+          logEntry.fat = 10;
+        }
+      } else if (lowerMessage.includes("oz")) {
+        logEntry.unit = "oz";
+        const match = lowerMessage.match(/(\d+(?:\.\d+)?)\s*oz/);
+        if (match) logEntry.quantity = parseFloat(match[1]);
+        
+        // Add nutrition estimates for common items
+        if (foodItem === "tofu") {
+          logEntry.calories = 60;
+          logEntry.protein = 7;
+          logEntry.carbs = 1;
+          logEntry.fat = 3;
+        }
+      }
+      
+      console.log("DEBUG: Created log entry:", logEntry);
+      console.log("DEBUG: Quantity extraction - original message:", message);
+      console.log("DEBUG: Quantity extraction - lower message:", lowerMessage);
+      console.log("DEBUG: Quantity extraction - extracted quantity:", logEntry.quantity);
+      console.log("DEBUG: Quantity extraction - extracted unit:", logEntry.unit);
+      
+      // Use Eastern Time for date calculations (same as later in the code)
+      const now = new Date();
+      const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
+      const dayDate = startOfDay(day ? new Date(day) : easternDate);
+      
+      // Get today's food logs to show complete list
+      const todayLogs = await prisma.foodLog.findMany({
+        where: {
+          userId: user.id,
+          loggedAt: {
+            gte: dayDate,
+            lt: new Date(dayDate.getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+        orderBy: { loggedAt: "asc" },
+      });
+
+      // Look for pending items in the conversation history
+      const pendingItems: any[] = [];
+      
+      // Check if there are any pending items from previous messages in this conversation
+      // Look for messages that contain "Please confirm adding" but haven't been confirmed yet
+      for (let i = conversationHistory.length - 1; i >= 0; i--) {
+        const msg = conversationHistory[i];
+        if (msg.role === "assistant" && msg.content.includes("Please confirm adding")) {
+          // Extract items from this confirmation message
+          const lines = msg.content.split('\n').filter(line => line.trim().startsWith('-'));
+          for (const line of lines) {
+            // Parse lines like "- item name (quantity unit): calories cal, protein g protein, carbs g carbs, fat g fat"
+            const match = line.match(/^-\s+([^(]+?)\s*\(([^)]+)\):\s*(\d+)\s*cal,\s*(\d+)g\s*protein,\s*(\d+)g\s*carbs,\s*(\d+)g\s*fat/);
+            if (match) {
+              const [, item, quantityUnit, calories, protein, carbs, fat] = match;
+              const [quantity, unit] = quantityUnit.trim().split(' ');
+              
+              pendingItems.push({
+                item: item.trim(),
+                quantity: parseFloat(quantity),
+                unit: unit,
+                calories: parseInt(calories),
+                protein: parseInt(protein),
+                carbs: parseInt(carbs),
+                fat: parseInt(fat)
+              });
+            }
+          }
+          break; // Stop at the first confirmation message we find
+        }
+      }
+      
+      // Create complete list including pending items plus the new one
+      const allItems = [...pendingItems, {
+        item: logEntry.item,
+        quantity: logEntry.quantity,
+        unit: logEntry.unit,
+        calories: logEntry.calories,
+        protein: logEntry.protein,
+        carbs: logEntry.carbs,
+        fat: logEntry.fat
+      }];
+
+      // Generate detailed confirmation message with complete list
+      const lines = allItems
+        .map((item) => {
+          const quantityText = item.quantity && item.unit ? ` (${item.quantity} ${item.unit})` : "";
+          const hasNutritionData = item.calories !== null && item.calories !== undefined || 
+                                  item.protein !== null && item.protein !== undefined || 
+                                  item.carbs !== null && item.carbs !== undefined || 
+                                  item.fat !== null && item.fat !== undefined;
+          
+          if (hasNutritionData) {
+            return `- ${item.item}${quantityText}: ${Math.round(item.calories ?? 0)} cal, ${Math.round(item.protein ?? 0)}g protein, ${Math.round(item.carbs ?? 0)}g carbs, ${Math.round(item.fat ?? 0)}g fat`;
+          } else {
+            return `- ${item.item}${quantityText} (nutrition data not available)`;
+          }
+        })
+        .join("\n");
+
+      const totals = allItems.reduce(
+        (acc, item) => ({
+          calories: acc.calories + (item.calories || 0),
+          protein: acc.protein + (item.protein || 0),
+          carbs: acc.carbs + (item.carbs || 0),
+          fat: acc.fat + (item.fat || 0),
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      );
+
+      let confirmationMessage = "";
+      if (allItems.length === 1) {
+        confirmationMessage = `Please confirm adding:\n${lines}\n\nReply with "yes" to confirm or "no" to cancel.`;
+      } else {
+        confirmationMessage = `Please confirm adding the following ${allItems.length} item(s):\n${lines}\n\nTotals: ${Math.round(totals.calories)} cal, ${Math.round(totals.protein)}g protein, ${Math.round(totals.carbs)}g carbs, ${Math.round(totals.fat)}g fat\n\nReply with "yes" to confirm or "no" to cancel.`;
+      }
+      
+      return NextResponse.json({
+        action: "log",
+        logs: allItems,
+        needsConfirmation: true,
+        reply: confirmationMessage,
+        goals: {},
+        itemsToRemove: []
+      });
+    }
+
     // Use Eastern Time for date calculations
     const now = new Date();
     const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
@@ -216,6 +465,21 @@ TODAY'S PROGRESS: ${todayTotals.calories} calories, ${todayTotals.protein}g prot
 
 TODAY'S FOOD: ${todayLogs.length > 0 ? todayLogs.map(log => `${log.item} (${log.calories || 0} cal)`).join(', ') : 'None logged yet'}
 
+CONVERSATION CONTEXT: When the user mentions multiple food items in a conversation, you should accumulate them and show the complete list when asking for confirmation. If the user mentions 4 items and then adds a 5th before confirming, show all 5 items in the confirmation message.
+
+FOOD LOGGING INTENT: Be very liberal in detecting food logging intent. If the user mentions any food item, treat it as a food logging request. Common patterns include:
+- "I had [food item]" - log the food
+- "also [food item]" - add to current list
+- "and [food item]" - add to current list  
+- "[food item] too" - add to current list
+- "plus [food item]" - add to current list
+- "Oh I also had [food item]" - add to current list
+- Just mentioning a food item when already logging - add to current list
+
+CRITICAL: If the user mentions any food item (like "sauce", "yaki soba", "eggs", "toast", etc.), ALWAYS treat it as food logging intent. Do not return generic "I'm here to help" responses for food items.
+
+When in doubt, treat it as food logging and let the user confirm or deny at the end.
+
 IMPORTANT: Always respond with valid JSON. You have access to comprehensive nutrition databases and can provide accurate calorie and macro estimates for most foods.
 
 Output only valid JSON with this shape:
@@ -231,25 +495,77 @@ Output only valid JSON with this shape:
   "reply"?: string
 }
 
+EXAMPLE: When logging food with confirmation, return exactly:
+{
+  "action": "log",
+  "logs": [
+    {"item": "soba noodles", "quantity": 1.5, "unit": "cups", "calories": 210, "protein": 8, "carbs": 45, "fat": 1}
+  ],
+  "needsConfirmation": true,
+  "reply": ""
+}
+
 Rules:
 - If the user mentions food they ate (using words like "had", "ate", "drank", "consumed"), set action to "log", add the food to logs array, and set needsConfirmation to true
 - If you have enough information to provide accurate nutrition estimates, include calories, protein, carbs, and fat in the log entry
 - If you need more information to provide accurate estimates, set action to "chat" and ask specific clarifying questions in the reply field
 - If the user wants to remove food, set action to "remove", add items to itemsToRemove, and set needsConfirmation to true
 
+CRITICAL: When needsConfirmation is true, you MUST leave the reply field completely empty. The system will auto-generate the confirmation message and show confirmation buttons.
+
+LOGGING ACTIONS:
+- When logging food items, set action to "log", include the logs array with nutrition data, and set needsConfirmation to true
+- When needsConfirmation is true, leave reply field completely empty
+- The system will automatically generate the confirmation message with food details and totals
+- IMPORTANT: If the user mentions multiple food items in the conversation before confirming, accumulate ALL items and show the complete list in the confirmation message
+- For example: If user says "I had eggs and toast" then adds "and coffee", show all 3 items (eggs, toast, coffee) in the confirmation
+
+CRITICAL JSON FORMAT:
+- ALWAYS return valid JSON with the exact structure shown above
+- NEVER return plain text confirmation messages
+- NEVER put confirmation text in the reply field when needsConfirmation is true
+- The system will handle generating confirmation messages automatically
+
 QUANTITY CLARIFICATION:
-- If the user mentions a food item WITHOUT specifying a quantity (e.g., "I had peanuts", "I ate chicken", "I drank wine"), you MUST ask for the quantity before logging
-- Set action to "chat" and put your clarification question in the "reply" field of the JSON response
-- Ask specific questions like "How much roasted salted peanuts did you have? (e.g., 1 cup, 2 tablespoons, 1/4 cup, 1 handful)"
-- Only proceed with logging when the user provides a clear quantity
-- Examples that need clarification: "peanuts", "chicken", "wine", "bread", "rice", "salad", "soup", "yogurt", "fruit", "vegetables", "nuts", "cheese", "cereal", "milk", "juice", "coffee", "tea"
-- Examples that DON'T need clarification: "a cup of peanuts", "2 eggs", "1 apple", "a glass of wine", "a slice of bread", "a bowl of soup", "a serving of pasta"
+- Only ask for clarification when NO reasonable assumption can be made about the quantity
+- For most food items, make reasonable estimates based on common serving sizes and context
+- Set action to "chat" and put your clarification question in the "reply" field of the JSON response only when absolutely necessary
+- When asking for clarification, use casual language and ask for "rough" amounts (e.g., "How much roughly?", "About how much?", "Roughly how much?")
+- Keep clarification questions simple and casual - avoid formal, detailed questions
+- Ask about ONE item at a time - do not ask about multiple items in the same question
+- Examples of good clarification questions: "Roughly how much rice?", "About how much tofu?", "How much roughly?"
+- Examples of bad clarification questions: "What specific veggies will you include, and how much of each?", "Please provide these details", "How much of each are you planning to use?"
+- Examples that typically need clarification: "some food", "a bit of food", "food" (with no context)
+- Examples that DON'T need clarification: "half pack of tofu", "a cup of rice", "2 eggs", "1 apple", "a glass of wine", "a slice of bread", "a bowl of soup", "a serving of pasta", "a handful of nuts"
+
+USE INTUITION FOR MOST QUANTITIES:
+- Make reasonable estimates for most food items based on common serving sizes
+- "Half pack of tofu" = approximately 7-8 oz (half of typical 14-16 oz package)
+- "A cup of rice" = 1 cup cooked rice
+- "A handful of nuts" = approximately 1/4 cup
+- "A slice of bread" = 1 slice
+- "A bowl of soup" = approximately 1.5 cups
+- "A serving of pasta" = approximately 1 cup cooked
+- Only ask for clarification when the quantity is completely unclear or could vary dramatically (e.g., "some food" with no context)
 
 CLARIFICATION RESPONSES:
-- When the user responds to a clarification question with a quantity (e.g., "1.5 cups", "2 tablespoons", "1/2 cup"), you MUST log the food item with that quantity
+- When the user responds to a clarification question with a quantity (e.g., "1.5 cups", "2 tablespoons", "1/2 cup", "a tablespoon", "1 cup", "2 eggs", "idk a tbsp", "maybe a tbsp", "like a tbsp"), you MUST log the food item with that quantity
 - Set action to "log", include the food item with the provided quantity, and set needsConfirmation to true
 - Do NOT ask for more clarification if the user has provided a clear quantity
-- Examples of clear quantities: "1.5 cups of rice", "2 tablespoons of peanut butter", "1/2 cup of yogurt", "1 apple", "2 eggs"
+- Examples of clear quantities: "1.5 cups of rice", "2 tablespoons of peanut butter", "1/2 cup of yogurt", "1 apple", "2 eggs", "a tablespoon", "1 cup", "a handful", "a slice", "idk a tbsp", "maybe a tbsp", "like a tbsp", "a tbsp"
+- If the user provides a quantity in response to your clarification question, immediately log the food with that quantity
+
+UNCERTAIN RESPONSES:
+- When the user responds with uncertainty (e.g., "idk", "I don't know", "normal amount", "regular amount"), make a reasonable assumption based on context
+- "Normal amount for a bowl" = approximately 1.5 cups
+- "Regular serving" = approximately 1 cup
+- "Normal portion" = approximately 1 serving
+- When asked about multiple items and user gives a general response, split the amount reasonably:
+  - "Normal amount for a single bowl" = approximately 1/2 cup each for multiple vegetables
+  - "Regular amount" = approximately 1/2 cup each for multiple items
+  - "Normal portion" = approximately 1/2 cup each for multiple ingredients
+- Log the food with your reasonable estimate and set needsConfirmation to true
+- If the estimate is unclear, ask for a more specific quantity (e.g., "Could you give me a rough amount? Like 1 cup, 2 cups, etc.?")
 
 IMPORTANT: The fallback response should only be used for completely unrecognizable or non-food-related messages. If the user mentions any food items, either log them (if quantity is clear) or ask for clarification (if quantity is unclear). Always put your response message in the "reply" field of the JSON.
 
@@ -292,6 +608,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
     console.log("DEBUG: Parsed JSON:", parsed);
     const modelOut = ModelOutputSchema.safeParse(parsed);
     console.log("DEBUG: Model output success:", modelOut.success);
+    console.log("DEBUG: Model output data:", modelOut.success ? modelOut.data : "N/A");
 
     if (!modelOut.success) {
       // Return a fallback response instead of error
@@ -305,7 +622,54 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
       });
     }
 
-    const { action, logs = [], goals: newGoals, itemsToRemove = [], needsConfirmation = false, reply } = modelOut.data;
+    let { action, logs = [], goals: newGoals, itemsToRemove = [], needsConfirmation = false, reply } = modelOut.data;
+
+    console.log("DEBUG: Parsed action:", action);
+    console.log("DEBUG: Parsed reply:", reply);
+    console.log("DEBUG: Parsed needsConfirmation:", needsConfirmation);
+    console.log("DEBUG: Parsed logs length:", logs.length);
+    console.log("DEBUG: Original message:", message);
+    console.log("DEBUG: Message contains 'had':", message.toLowerCase().includes("had"));
+    console.log("DEBUG: Message contains 'also':", message.toLowerCase().includes("also"));
+
+    // Check if the AI returned valid JSON but didn't handle a quantity response properly
+    if (action === "chat" && reply && reply.toLowerCase().includes("i'm here to help") && 
+        (message.toLowerCase().includes("tbsp") || message.toLowerCase().includes("tablespoon") || 
+         message.toLowerCase().includes("cup") || message.toLowerCase().includes("oz"))) {
+      console.log("DEBUG: AI returned generic response for quantity input, handling as quantity response");
+      // Treat this as a quantity response that needs to be logged
+      action = "log";
+      logs = [{
+        item: message.trim(),
+        quantity: 1,
+        unit: "serving",
+        calories: undefined,
+        protein: undefined,
+        carbs: undefined,
+        fat: undefined
+      }];
+      needsConfirmation = true;
+      reply = "";
+    }
+
+    // Check if the AI returned a generic response when it should have detected food logging
+    if (action === "chat" && reply && (
+        reply.toLowerCase().includes("i'm here to help") || 
+        reply.toLowerCase().includes("didn't quite understand") ||
+        reply.toLowerCase().includes("you can ask me")
+      ) && (
+        message.toLowerCase().includes("had") || 
+        message.toLowerCase().includes("also") ||
+        message.toLowerCase().includes("sauce") ||
+        message.toLowerCase().includes("yaki soba")
+      )) {
+      console.log("DEBUG: AI returned generic response for food logging input, handling as food logging request");
+      // Treat this as a food logging request that needs quantity clarification
+      action = "chat";
+      logs = [];
+      needsConfirmation = false;
+      reply = "I see you want to log some food. Could you tell me roughly how much you had? For example: \"1 cup\", \"2 tablespoons\", \"a handful\", etc.";
+    }
 
     // Check if we got empty JSON or missing critical fields
     if (!action || (action === "chat" && !reply)) {
@@ -316,6 +680,47 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
       console.log("DEBUG: Contains question mark:", text.includes("?"));
       console.log("DEBUG: Contains 'how much':", text.toLowerCase().includes("how much"));
       console.log("DEBUG: Contains 'quantity':", text.toLowerCase().includes("quantity"));
+      
+      // Check if this looks like a confirmation message with nutrition data
+      if (text.includes("Please confirm adding") && text.includes("cal,") && text.includes("g protein")) {
+        console.log("DEBUG: Detected confirmation message with nutrition data, extracting...");
+        
+        // Try to extract nutrition data from the confirmation message
+        const lines = text.split('\n').filter(line => line.trim().startsWith('-'));
+        const extractedLogs = [];
+        
+        for (const line of lines) {
+          // Parse lines like "- soba noodles (1.5 cups): 210 cal, 8g protein, 45g carbs, 1g fat"
+          const match = line.match(/^-\s+([^(]+?)\s*\(([^)]+)\):\s*(\d+)\s*cal,\s*(\d+)g\s*protein,\s*(\d+)g\s*carbs,\s*(\d+)g\s*fat/);
+          if (match) {
+            const [, item, quantityUnit, calories, protein, carbs, fat] = match;
+            const [quantity, unit] = quantityUnit.trim().split(' ');
+            
+            extractedLogs.push({
+              item: item.trim(),
+              quantity: parseFloat(quantity),
+              unit: unit,
+              calories: parseInt(calories),
+              protein: parseInt(protein),
+              carbs: parseInt(carbs),
+              fat: parseInt(fat)
+            });
+          }
+        }
+        
+        if (extractedLogs.length > 0) {
+          console.log("DEBUG: Successfully extracted logs:", extractedLogs);
+          // Return the confirmation message directly
+          return NextResponse.json({
+            action: "log",
+            logs: extractedLogs,
+            needsConfirmation: true,
+            reply: text.trim(),
+            goals: {},
+            itemsToRemove: []
+          });
+        }
+      }
       
       if (text.includes("?") || text.toLowerCase().includes("how much") || text.toLowerCase().includes("quantity")) {
         // This looks like a clarification question, return it properly
@@ -330,11 +735,130 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
         });
       }
       
-      // Otherwise, return fallback
-      console.log("DEBUG: Returning generic fallback");
+      // Check if this looks like a quantity response that should be logged
+      const lowerText = text.toLowerCase();
+      const quantityKeywords = [
+        'tbsp', 'tablespoon', 'tbs', 'tbspn',
+        'cup', 'cups', 
+        'oz', 'ounce', 'ounces',
+        'gram', 'grams', 'g',
+        'handful', 'slice', 'piece', 'serving',
+        '1tbsp', '2tbsp', '1tbs', '2tbs',
+        '1cup', '2cup', '1cups', '2cups',
+        '1oz', '2oz', '1ounce', '2ounce'
+      ];
+      const hasQuantity = quantityKeywords.some(keyword => lowerText.includes(keyword));
+      
+      // Check for quantity-like responses that might not have exact keywords
+      const quantityLikePatterns = [
+        'like a', 'about a', 'maybe a', 'roughly a', 'around a',
+        'like 1', 'about 1', 'maybe 1', 'roughly 1', 'around 1',
+        'like 2', 'about 2', 'maybe 2', 'roughly 2', 'around 2'
+      ];
+      const hasQuantityLikePattern = quantityLikePatterns.some(pattern => lowerText.includes(pattern));
+      
+      console.log("DEBUG: Smart fallback analysis:");
+      console.log("DEBUG: Text:", text);
+      console.log("DEBUG: Lower text:", lowerText);
+      console.log("DEBUG: Has quantity:", hasQuantity);
+      console.log("DEBUG: Has quantity like pattern:", hasQuantityLikePattern);
+      console.log("DEBUG: Quantity keywords found:", quantityKeywords.filter(keyword => lowerText.includes(keyword)));
+      console.log("DEBUG: Quantity like patterns found:", quantityLikePatterns.filter(pattern => lowerText.includes(pattern)));
+      
+      // Check if this looks like a complete food logging request
+      const foodKeywords = ['of', 'with', 'and', 'too', 'also', 'plus', 'add', 'had', 'ate', 'drank'];
+      const hasFoodContext = foodKeywords.some(keyword => lowerText.includes(keyword));
+      
+      // Check if we're in a food logging conversation context
+      const isInFoodLoggingContext = conversationHistory.some(msg => 
+        msg.role === "assistant" && (
+          msg.content.includes("Please confirm adding") ||
+          msg.content.includes("How much") ||
+          msg.content.includes("roughly how much") ||
+          msg.content.includes("about how much")
+        )
+      );
+      
+      // Also check for food items that might not have the context keywords
+      const foodItems = ['yogurt', 'rice', 'tofu', 'chicken', 'beef', 'fish', 'pasta', 'bread', 'soup', 'salad', 'fruit', 'vegetables', 'nuts', 'cheese', 'milk', 'juice', 'sauce', 'dressing', 'yaki soba', 'soba', 'noodles', 'peanut butter', 'honey', 'syrup', 'ketchup', 'mayo', 'mustard'];
+      const hasFoodItem = foodItems.some(item => lowerText.includes(item));
+      
+      // Check if this looks like an AI response (contains confirmation language)
+      const aiResponseKeywords = [
+        'please confirm', 'reply with', 'totals:', 'cal,', 'g protein', 'g carbs', 'g fat',
+        'i\'ll log', 'i\'ll estimate', 'here\'s what', 'let me log', 'i\'m logging',
+        'i detected', 'i see you', 'could you tell me', 'how much', 'roughly how much',
+        'about how much', 'i need to know', 'i\'m here to help', 'you can ask me',
+        'i understand', 'no problem', 'i won\'t log', 'what else can i help'
+      ];
+      const isAiResponse = aiResponseKeywords.some(keyword => lowerText.includes(keyword));
+      
+      console.log("DEBUG: Is AI response:", isAiResponse);
+      console.log("DEBUG: AI response keywords found:", aiResponseKeywords.filter(keyword => lowerText.includes(keyword)));
+      
+      if (hasQuantity && (hasFoodContext || hasFoodItem) && !isAiResponse) {
+        // This looks like a complete food logging request with quantity, try to extract and log it
+        console.log("DEBUG: Detected complete food logging request with quantity, attempting to log");
+        return NextResponse.json({
+          action: "log",
+          logs: [{
+            item: text.trim(),
+            quantity: 1,
+            unit: "serving",
+            calories: undefined,
+            protein: undefined,
+            carbs: undefined,
+            fat: undefined
+          }],
+          needsConfirmation: true,
+          reply: `I detected you want to log: "${text.trim()}". I don't have nutrition data for this item, but I can log it for you. You can edit the nutrition details later if needed.`,
+          goals: {},
+          itemsToRemove: []
+        });
+      } else if (isInFoodLoggingContext && hasFoodItem && !isAiResponse) {
+        // If we're in a food logging context and user mentions a food item, treat it as food logging
+        console.log("DEBUG: Detected food item in food logging context, asking for quantity");
+        console.log("DEBUG: In food logging context:", isInFoodLoggingContext);
+        console.log("DEBUG: Has food item:", hasFoodItem);
+        return NextResponse.json({
+          action: "chat",
+          reply: "I see you want to log some food. Could you tell me roughly how much you had? For example: \"1 cup\", \"2 tablespoons\", \"a handful\", etc.",
+          logs: [],
+          goals: {},
+          itemsToRemove: [],
+          needsConfirmation: false,
+        });
+      } else if (hasFoodContext && hasFoodItem && !isAiResponse) {
+        // This looks like a food logging request without quantity, ask for quantity
+        console.log("DEBUG: Detected food logging request without quantity, asking for quantity");
+        console.log("DEBUG: Has food context:", hasFoodContext);
+        console.log("DEBUG: Has food item:", hasFoodItem);
+        return NextResponse.json({
+          action: "chat",
+          reply: "I see you want to log some food. Could you tell me roughly how much you had? For example: \"1 cup\", \"2 tablespoons\", \"a handful\", etc.",
+          logs: [],
+          goals: {},
+          itemsToRemove: [],
+          needsConfirmation: false,
+        });
+      } else if ((hasQuantity || hasQuantityLikePattern) && !isAiResponse) {
+        // This looks like a quantity response, ask for clarification about what food item
+        console.log("DEBUG: Detected quantity response, asking for food item");
+        return NextResponse.json({
+          action: "chat",
+          reply: "I see you mentioned a quantity, but I need to know what food item you're referring to. Could you tell me what food you had?",
+          logs: [],
+          goals: {},
+          itemsToRemove: [],
+          needsConfirmation: false,
+        });
+      }
+      
+      // If we get here, the response wasn't recognized - ask for clarification instead of generic fallback
+      console.log("DEBUG: Response not recognized, asking for clarification");
       return NextResponse.json({
         action: "chat",
-        reply: "I'm sorry, I didn't get that. Let me try to help you with nutrition tracking:\n\n• Log food: \"I had 2 eggs for breakfast\"\n• Ask for suggestions: \"What should I eat?\"\n• Remove items: \"Remove the eggs from today\"\n• Get help: \"What can you do?\"\n\nCould you try rephrasing your request?",
+        reply: "I didn't quite understand that response. Could you rephrase it? For example:\n• \"1 tablespoon\"\n• \"about a cup\"\n• \"half a serving\"\n• \"I don't know, maybe 2 tablespoons\"",
         logs: [],
         goals: {},
         itemsToRemove: [],
@@ -498,22 +1022,72 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
     }
     
     // If we need confirmation for adds, list the items with their macros and totals
-    if (!finalReply && needsConfirmation && action === "log" && logs.length > 0) {
-      const lines = logs
+    if ((!finalReply || finalReply === "") && needsConfirmation && action === "log" && logs.length > 0) {
+      console.log("DEBUG: Generating confirmation message");
+      console.log("DEBUG: finalReply:", finalReply);
+      console.log("DEBUG: needsConfirmation:", needsConfirmation);
+      console.log("DEBUG: action:", action);
+      console.log("DEBUG: logs length:", logs.length);
+      
+      // Look for pending items in the conversation history
+      const pendingItems: any[] = [];
+      
+      // Check if there are any pending items from previous messages in this conversation
+      // Look for messages that contain "Please confirm adding" but haven't been confirmed yet
+      for (let i = conversationHistory.length - 1; i >= 0; i--) {
+        const msg = conversationHistory[i];
+        if (msg.role === "assistant" && msg.content.includes("Please confirm adding")) {
+          // Extract items from this confirmation message
+          const lines = msg.content.split('\n').filter(line => line.trim().startsWith('-'));
+          for (const line of lines) {
+            // Parse lines like "- item name (quantity unit): calories cal, protein g protein, carbs g carbs, fat g fat"
+            const match = line.match(/^-\s+([^(]+?)\s*\(([^)]+)\):\s*(\d+)\s*cal,\s*(\d+)g\s*protein,\s*(\d+)g\s*carbs,\s*(\d+)g\s*fat/);
+            if (match) {
+              const [, item, quantityUnit, calories, protein, carbs, fat] = match;
+              const [quantity, unit] = quantityUnit.trim().split(' ');
+              
+              pendingItems.push({
+                item: item.trim(),
+                quantity: parseFloat(quantity),
+                unit: unit,
+                calories: parseInt(calories),
+                protein: parseInt(protein),
+                carbs: parseInt(carbs),
+                fat: parseInt(fat)
+              });
+            }
+          }
+          break; // Stop at the first confirmation message we find
+        }
+      }
+      
+      // Combine pending items with current logs
+      const allItems = [...pendingItems, ...logs];
+      
+      const lines = allItems
         .map(
           (l) => {
             const quantityText = l.quantity && l.unit ? ` (${l.quantity} ${l.unit})` : "";
-            return `- ${l.item}${quantityText}: ${Math.round(l.calories ?? 0)} cal, ${Math.round(
-              l.protein ?? 0
-            )}g protein, ${Math.round(l.carbs ?? 0)}g carbs, ${Math.round(l.fat ?? 0)}g fat`;
+            const hasNutritionData = l.calories !== null && l.calories !== undefined || 
+                                    l.protein !== null && l.protein !== undefined || 
+                                    l.carbs !== null && l.carbs !== undefined || 
+                                    l.fat !== null && l.fat !== undefined;
+            
+            if (hasNutritionData) {
+              return `- ${l.item}${quantityText}: ${Math.round(l.calories ?? 0)} cal, ${Math.round(
+                l.protein ?? 0
+              )}g protein, ${Math.round(l.carbs ?? 0)}g carbs, ${Math.round(l.fat ?? 0)}g fat`;
+            } else {
+              return `- ${l.item}${quantityText} (nutrition data not available)`;
+            }
           }
         )
         .join("\n");
       
-      if (logs.length === 1) {
+      if (allItems.length === 1) {
         finalReply = `Please confirm adding:\n${lines}\n\nReply with "yes" to confirm or "no" to cancel.`;
       } else {
-        const totals = logs.reduce(
+        const totals = allItems.reduce(
           (acc, l) => ({
             calories: acc.calories + (l.calories || 0),
             protein: acc.protein + (l.protein || 0),
@@ -522,12 +1096,15 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
           }),
           { calories: 0, protein: 0, carbs: 0, fat: 0 }
         );
-        finalReply = `Please confirm adding the following ${logs.length} item(s):\n${lines}\n\nTotals: ${Math.round(
+        finalReply = `Please confirm adding the following ${allItems.length} item(s):\n${lines}\n\nTotals: ${Math.round(
           totals.calories
         )} cal, ${Math.round(totals.protein)}g protein, ${Math.round(totals.carbs)}g carbs, ${Math.round(
           totals.fat
         )}g fat\n\nReply with "yes" to confirm or "no" to cancel.`;
       }
+      console.log("DEBUG: Generated finalReply:", finalReply);
+      console.log("DEBUG: Pending items found:", pendingItems.length);
+      console.log("DEBUG: Total items in confirmation:", allItems.length);
     }
     if (!finalReply && logs.length > 0) {
       const itemNames = logs.map(log => log.item).join(", ");
@@ -551,6 +1128,12 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
         create: { userId: user.id, ...newGoals },
       });
     }
+
+    console.log("DEBUG: Final response values:");
+    console.log("DEBUG: action:", action);
+    console.log("DEBUG: finalReply:", finalReply);
+    console.log("DEBUG: needsConfirmation:", needsConfirmation);
+    console.log("DEBUG: logs:", logs);
 
     return NextResponse.json({
       action,
