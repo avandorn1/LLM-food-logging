@@ -48,9 +48,9 @@ export default function Goals() {
   }, []);
 
   return (
-    <div className="w-full max-w-2xl border rounded-lg p-4 flex flex-col gap-3">
+    <div className="w-full max-w-2xl border rounded-lg p-3 flex flex-col gap-2">
       <div className="text-lg font-semibold">Calculated Goals</div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         <div className="text-sm flex flex-col gap-1">
           <span className="text-gray-600 dark:text-gray-400">Calories</span>
           <div className="border rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100">
@@ -97,11 +97,6 @@ export default function Goals() {
           </div>
         </div>
       </div>
-      {goal.targetCalories && (
-        <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-          Based on {bio.age} year old {bio.biologicalSex}, {bio.height}" tall, {bio.weight} lbs, {bio.activityLevel} activity level
-        </div>
-      )}
     </div>
   );
 }
