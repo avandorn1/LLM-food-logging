@@ -59,7 +59,7 @@ export default function CalorieGauge() {
   if (loading) {
     return (
       <div className="w-full border rounded-lg p-4">
-        <div className="text-lg font-semibold mb-3">Daily Progress</div>
+        <div className="text-lg font-semibold mb-3">Progress Towards Calorie Goals</div>
         <div className="w-full h-8 bg-gray-200 rounded-full animate-pulse"></div>
       </div>
     );
@@ -73,7 +73,7 @@ export default function CalorieGauge() {
   if (!actualGoal?.targetCalories) {
     return (
       <div className="w-full border rounded-lg p-4">
-        <div className="text-lg font-semibold mb-3">Daily Progress</div>
+        <div className="text-lg font-semibold mb-3">Progress Towards Calorie Goals</div>
         <div className="text-sm text-gray-500 text-center py-4">
           Set your calorie goals to see progress
         </div>
@@ -120,7 +120,7 @@ export default function CalorieGauge() {
 
   return (
     <div className="w-full border rounded-lg p-4">
-      <div className="text-lg font-semibold mb-3">Daily Progress</div>
+      <div className="text-lg font-semibold mb-3">Progress Towards Calorie Goals</div>
       
       {/* Gauge Container */}
       <div className="relative w-full h-40 flex items-center justify-center">
