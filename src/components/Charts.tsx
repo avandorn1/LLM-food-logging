@@ -48,16 +48,15 @@ export default function Charts() {
   }
 
   function renderLabel(unit: string) {
-    return (props: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return function LabelComponent(props: any) {
       const RADIAN = Math.PI / 180;
       const {
         cx,
         cy,
         midAngle,
-        innerRadius,
         outerRadius,
         value,
-        name,
         percent,
       } = props;
       const radius = outerRadius + 12;

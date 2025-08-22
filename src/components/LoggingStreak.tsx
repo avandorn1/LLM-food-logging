@@ -24,7 +24,6 @@ export default function LoggingStreak() {
 
       // Calculate consecutive days streak
       let currentStreak = 0;
-      let maxStreak = 0;
       
       // Sort by date (newest first) and check for consecutive days
       const sortedDays = series
@@ -40,7 +39,6 @@ export default function LoggingStreak() {
       const now = new Date();
       const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
       const todayKey = easternDate.toISOString().slice(0, 10);
-      const todayLogged = sortedDays.some((day: DayData) => day.day === todayKey);
 
       // Calculate streak from most recent logged day
       let previousDate: Date | null = null;

@@ -329,7 +329,15 @@ export async function POST(req: NextRequest) {
       });
 
       // Look for pending items in the conversation history
-      const pendingItems: any[] = [];
+      const pendingItems: Array<{
+        item: string;
+        quantity: number;
+        unit: string;
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
+      }> = [];
       
       // Check if there are any pending items from previous messages in this conversation
       // Look for messages that contain "Please confirm adding" but haven't been confirmed yet
@@ -657,7 +665,13 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
       });
     }
 
-    let { action, logs = [], goals: newGoals, itemsToRemove = [], needsConfirmation = false, reply } = modelOut.data;
+    const data = modelOut.data;
+    let action = data.action;
+    let logs = data.logs || [];
+    const newGoals = data.goals;
+    const itemsToRemove = data.itemsToRemove || [];
+    let needsConfirmation = data.needsConfirmation || false;
+    let reply = data.reply;
 
     console.log("DEBUG: Parsed action:", action);
     console.log("DEBUG: Parsed reply:", reply);
@@ -1128,7 +1142,15 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
       console.log("DEBUG: logs length:", logs.length);
       
       // Look for pending items in the conversation history
-      const pendingItems: any[] = [];
+      const pendingItems: Array<{
+        item: string;
+        quantity: number;
+        unit: string;
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
+      }> = [];
       
       // Check if there are any pending items from previous messages in this conversation
       // Look for messages that contain "Please confirm adding" but haven't been confirmed yet

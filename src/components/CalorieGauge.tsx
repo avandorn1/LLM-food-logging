@@ -66,7 +66,7 @@ export default function CalorieGauge() {
   }
 
   // Extract the actual goal data from the nested structure
-  const actualGoal = goal?.goal || goal;
+  const actualGoal = goal;
   
   console.log("CalorieGauge - goal:", goal, "actualGoal:", actualGoal);
   

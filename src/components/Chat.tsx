@@ -5,8 +5,8 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 
 type PendingAction = {
   action: "log" | "remove";
-  logs?: any[];
-  itemsToRemove?: any[];
+  logs?: unknown[];
+  itemsToRemove?: unknown[];
 };
 
 export default function Chat() {

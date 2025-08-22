@@ -71,7 +71,7 @@ export default function MacroGauges() {
   }
 
   // Extract the actual goal data from the nested structure
-  const actualGoal = goal?.goal || goal;
+  const actualGoal = goal;
   
   if (!actualGoal?.targetProtein || !actualGoal?.targetCarbs || !actualGoal?.targetFat) {
     return (

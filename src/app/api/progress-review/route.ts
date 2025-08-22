@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     // Calculate daily totals
     const dailyTotals = Array.from(logsByDay.entries()).map(([day, logs]) => {
       const totals = logs.reduce(
-        (acc, log) => ({
+        (acc: { calories: number; protein: number; carbs: number; fat: number }, log: { calories: number | null; protein: number | null; carbs: number | null; fat: number | null }) => ({
           calories: acc.calories + (log.calories || 0),
           protein: acc.protein + (log.protein || 0),
           carbs: acc.carbs + (log.carbs || 0),

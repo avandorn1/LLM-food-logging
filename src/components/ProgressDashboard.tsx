@@ -24,7 +24,7 @@ interface ProgressStats {
 export default function ProgressDashboard() {
   const [data, setData] = useState<DayData[]>([]);
   const [stats, setStats] = useState<ProgressStats | null>(null);
-  const [goals, setGoals] = useState<any>(null);
+  const [goals, setGoals] = useState<{ targetCalories?: number; targetProtein?: number; targetCarbs?: number; targetFat?: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [progressReview, setProgressReview] = useState<string>("");
   const [reviewLoading, setReviewLoading] = useState(true);
@@ -48,6 +48,7 @@ export default function ProgressDashboard() {
       setProgressReview(reviewData.message);
       
       // Transform data for charts - the API returns { series, goal }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const transformedData = summaryData.series?.map((day: any) => {
         // Parse the date string (format: "2025-08-19")
         const dateParts = day.day.split('-');
@@ -66,17 +67,17 @@ export default function ProgressDashboard() {
       setData(transformedData);
 
       // Calculate statistics
-      const nonZeroDays = transformedData.filter(d => d.calories > 0);
+      const nonZeroDays = transformedData.filter((d: DayData) => d.calories > 0);
       const totalDaysLogged = nonZeroDays.length;
-      const averageCalories = totalDaysLogged > 0 ? Math.round(nonZeroDays.reduce((sum, d) => sum + d.calories, 0) / totalDaysLogged) : 0;
-      const averageProtein = totalDaysLogged > 0 ? Math.round(nonZeroDays.reduce((sum, d) => sum + d.protein, 0) / totalDaysLogged) : 0;
-      const averageCarbs = totalDaysLogged > 0 ? Math.round(nonZeroDays.reduce((sum, d) => sum + d.carbs, 0) / totalDaysLogged) : 0;
-      const averageFat = totalDaysLogged > 0 ? Math.round(nonZeroDays.reduce((sum, d) => sum + d.fat, 0) / totalDaysLogged) : 0;
-      const totalItemsLogged = transformedData.reduce((sum, d) => sum + d.loggedItems, 0);
+      const averageCalories = totalDaysLogged > 0 ? Math.round(nonZeroDays.reduce((sum: number, d: DayData) => sum + d.calories, 0) / totalDaysLogged) : 0;
+      const averageProtein = totalDaysLogged > 0 ? Math.round(nonZeroDays.reduce((sum: number, d: DayData) => sum + d.protein, 0) / totalDaysLogged) : 0;
+      const averageCarbs = totalDaysLogged > 0 ? Math.round(nonZeroDays.reduce((sum: number, d: DayData) => sum + d.carbs, 0) / totalDaysLogged) : 0;
+      const averageFat = totalDaysLogged > 0 ? Math.round(nonZeroDays.reduce((sum: number, d: DayData) => sum + d.fat, 0) / totalDaysLogged) : 0;
+      const totalItemsLogged = transformedData.reduce((sum: number, d: DayData) => sum + d.loggedItems, 0);
 
       // Calculate goal consistency - days in the sweet spot (90-110% of target)
       const targetCalories = goalsData.goal?.targetCalories || 2000;
-      const daysInSweetSpot = nonZeroDays.filter(d => 
+      const daysInSweetSpot = nonZeroDays.filter((d: DayData) => 
         d.calories >= targetCalories * 0.9 && d.calories <= targetCalories * 1.1
       ).length;
       const goalConsistency = totalDaysLogged > 0 ? Math.round((daysInSweetSpot / totalDaysLogged) * 100) : 0;
@@ -143,7 +144,7 @@ export default function ProgressDashboard() {
           </div>
           <div className="text-sm text-blue-800 dark:text-blue-200">
             <div className="font-medium mb-1">🎯 Remember: Consistency Over Perfection!</div>
-            <div>These numbers are AI estimates to help you build better habits. Don't stress about perfect accuracy - the real win is showing up and logging regularly. Keep up the great work! 💪</div>
+            <div>These numbers are AI estimates to help you build better habits. Don&apos;t stress about perfect accuracy - the real win is showing up and logging regularly. Keep up the great work! 💪</div>
           </div>
         </div>
       </div>
