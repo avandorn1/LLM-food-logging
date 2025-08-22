@@ -35,7 +35,7 @@ export default function CalorieGauge() {
         ]);
       const goalData = await goalRes.json();
       const logsData = await logsRes.json();
-      setGoal(goalData);
+      setGoal(goalData.goal); // Fix: extract the goal object from the response
       setRows(logsData.logs || []);
     } catch (error) {
       console.error("Error loading data:", error);
