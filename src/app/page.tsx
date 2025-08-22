@@ -3,6 +3,7 @@ import FoodLogTable from "@/components/FoodLogTable";
 import EncouragementBanner from "@/components/EncouragementBanner";
 import CalorieGauge from "@/components/CalorieGauge";
 import MacroGauges from "@/components/MacroGauges";
+import LoggingStreak from "@/components/LoggingStreak";
 
 export default function Home() {
   return (
@@ -14,6 +15,7 @@ export default function Home() {
             <Chat />
           </div>
           <div className="lg:col-span-1 flex flex-col gap-6">
+            <LoggingStreak />
             <CalorieGauge />
             <MacroGauges />
             <FoodLogTable />
