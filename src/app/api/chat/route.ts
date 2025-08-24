@@ -722,6 +722,37 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
 
     // Check if we got empty JSON or missing critical fields
     if (!action || (action === "chat" && !reply)) {
+      // Check if the message contains food items that should be logged
+      const commonFoodItems = [
+        'oats', 'protein', 'almond', 'yogurt', 'strawberries', 'chia', 'peanut', 'butter',
+        'rice', 'pasta', 'bread', 'eggs', 'chicken', 'beef', 'fish', 'salmon', 'tofu',
+        'vegetables', 'fruits', 'apple', 'banana', 'orange', 'milk', 'cheese', 'sauce',
+        'soup', 'salad', 'sandwich', 'pizza', 'noodles', 'pancakes', 'waffles', 'cereal'
+      ];
+      
+      const containsFoodItems = commonFoodItems.some(keyword => 
+        message.toLowerCase().includes(keyword)
+      );
+      
+      if (containsFoodItems) {
+        console.log("DEBUG: Detected food items in message, treating as food logging request");
+        return NextResponse.json({
+          action: "log",
+          logs: [{
+            item: "food items",
+            quantity: 1,
+            unit: "serving",
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0
+          }],
+          needsConfirmation: true,
+          reply: "I see you want to log some food. Could you tell me roughly how much you had? For example: \"1 cup\", \"2 tablespoons\", \"a handful\", etc.",
+          goals: {},
+          itemsToRemove: []
+        });
+      }
       // This is likely a clarification question that wasn't properly formatted
       // Try to extract the question from the AI's raw response
       const text = completion.choices?.[0]?.message?.content ?? "";
