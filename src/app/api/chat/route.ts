@@ -810,32 +810,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
         errors: modelOut.error?.errors || []
       });
       
-      // Check if the message contains food items that should be logged
-      const commonFoodItems = [
-        'oats', 'protein', 'almond', 'yogurt', 'strawberries', 'chia', 'peanut', 'butter',
-        'rice', 'pasta', 'bread', 'eggs', 'chicken', 'beef', 'fish', 'salmon', 'tofu',
-        'vegetables', 'fruits', 'apple', 'banana', 'orange', 'milk', 'cheese', 'sauce',
-        'soup', 'salad', 'sandwich', 'pizza', 'noodles', 'pancakes', 'waffles', 'cereal',
-        'ipa', 'beer', 'ale', 'lager', 'stout', 'wine', 'cocktail', 'drink', 'beverage',
-        'whiskey', 'vodka', 'gin', 'rum', 'tequila', 'bourbon', 'scotch', 'brandy'
-      ];
-      
-      const containsFoodItems = commonFoodItems.some(keyword => 
-        message.toLowerCase().includes(keyword)
-      );
-      
-      if (containsFoodItems) {
-        return NextResponse.json({
-          action: "chat",
-          reply: "I see you want to log some food, but I'm having trouble processing the details. Could you try rephrasing? For example: \"I had 2 eggs\" or \"I drank a 20 oz IPA\"",
-          logs: [],
-          goals: {},
-          itemsToRemove: [],
-          needsConfirmation: false,
-          error: true,
-          errorType: "parsing"
-        });
-      }
+      // Let the LLM handle food recognition - no hardcoded lists needed
       
       // Return a fallback response instead of error
       return NextResponse.json({
@@ -1501,25 +1476,8 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
     }
     
     if (!finalReply && action === "chat") {
-      // Check if the message contains food items that weren't processed
-      const commonFoodItems = [
-        'oats', 'protein', 'almond', 'yogurt', 'strawberries', 'chia', 'peanut', 'butter',
-        'rice', 'pasta', 'bread', 'eggs', 'chicken', 'beef', 'fish', 'salmon', 'tofu',
-        'vegetables', 'fruits', 'apple', 'banana', 'orange', 'milk', 'cheese', 'sauce',
-        'soup', 'salad', 'sandwich', 'pizza', 'noodles', 'pancakes', 'waffles', 'cereal',
-        'taco', 'spinach', 'lettuce', 'tomato', 'onion', 'pepper', 'carrot', 'broccoli',
-        'cauliflower', 'kale', 'arugula', 'cucumber', 'bell pepper', 'mushroom', 'zucchini'
-      ];
-      
-      const containsFoodItems = commonFoodItems.some(keyword => 
-        message.toLowerCase().includes(keyword)
-      );
-      
-      if (containsFoodItems) {
-        finalReply = "I see you mentioned some food items. Let me help you log them. Could you tell me roughly how much you had? For example: \"1 cup\", \"2 tablespoons\", \"a handful\", etc.";
-      } else {
-        finalReply = "I understand. How else can I help you with your nutrition tracking?";
-      }
+      // Let the LLM handle food recognition - no hardcoded lists needed
+      finalReply = "I understand. How else can I help you with your nutrition tracking?";
     }
     if (!finalReply && action === "remove") {
       finalReply = "I can help you remove items from your food log. Please specify which items you'd like to remove.";
