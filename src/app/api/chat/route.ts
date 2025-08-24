@@ -736,22 +736,31 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
       
       if (containsFoodItems) {
         console.log("DEBUG: Detected food items in message, treating as food logging request");
-        return NextResponse.json({
-          action: "log",
-          logs: [{
-            item: "food items",
-            quantity: 1,
-            unit: "serving",
-            calories: 0,
-            protein: 0,
-            carbs: 0,
-            fat: 0
-          }],
-          needsConfirmation: true,
-          reply: "I see you want to log some food. Could you tell me roughly how much you had? For example: \"1 cup\", \"2 tablespoons\", \"a handful\", etc.",
-          goals: {},
-          itemsToRemove: []
-        });
+        
+        // Check if the message already contains quantities
+        const quantityPatterns = [
+          /\d+\/\d+\s*(cup|cups|tbsp|tablespoon|tablespoons|scoop|scoops|oz|ounce|ounces)/i,
+          /\d+\.\d+\s*(cup|cups|tbsp|tablespoon|tablespoons|scoop|scoops|oz|ounce|ounces)/i,
+          /\d+\s*(cup|cups|tbsp|tablespoon|tablespoons|scoop|scoops|oz|ounce|ounces)/i
+        ];
+        
+        const hasQuantities = quantityPatterns.some(pattern => pattern.test(message));
+        
+        if (hasQuantities) {
+          // Message already has quantities, don't interfere - let the AI process normally
+          console.log("DEBUG: Message contains quantities, not interfering with AI processing");
+          // Don't return anything here - let the code continue to the AI processing
+        } else {
+          // No quantities found, ask for clarification
+          return NextResponse.json({
+            action: "chat", // Use "chat" action for clarification questions, not "log"
+            logs: [],
+            needsConfirmation: false, // No confirmation needed for clarification questions
+            reply: "I see you want to log some food. Could you tell me roughly how much you had? For example: \"1 cup\", \"2 tablespoons\", \"a handful\", etc.",
+            goals: {},
+            itemsToRemove: []
+          });
+        }
       }
       // This is likely a clarification question that wasn't properly formatted
       // Try to extract the question from the AI's raw response
