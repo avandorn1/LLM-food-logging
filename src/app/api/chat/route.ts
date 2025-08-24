@@ -257,6 +257,27 @@ export async function POST(req: NextRequest) {
                                  prevContent.includes("noodles") || 
                                  prevContent.includes("peppers") || 
                                  prevContent.includes("mushrooms") ||
+                                 prevContent.includes("milk") ||
+                                 prevContent.includes("fish") ||
+                                 prevContent.includes("taco") ||
+                                 prevContent.includes("spinach") ||
+                                 prevContent.includes("eggs") ||
+                                 prevContent.includes("bread") ||
+                                 prevContent.includes("chicken") ||
+                                 prevContent.includes("beef") ||
+                                 prevContent.includes("salmon") ||
+                                 prevContent.includes("apple") ||
+                                 prevContent.includes("banana") ||
+                                 prevContent.includes("orange") ||
+                                 prevContent.includes("cheese") ||
+                                 prevContent.includes("pasta") ||
+                                 prevContent.includes("soup") ||
+                                 prevContent.includes("salad") ||
+                                 prevContent.includes("sandwich") ||
+                                 prevContent.includes("pizza") ||
+                                 prevContent.includes("pancakes") ||
+                                 prevContent.includes("waffles") ||
+                                 prevContent.includes("cereal") ||
                                  prevContent.includes("ipa") || 
                                  prevContent.includes("beer") ||
                                  prevContent.includes("wine") ||
@@ -286,6 +307,27 @@ export async function POST(req: NextRequest) {
       else if (prevContent.includes("noodles")) foodItem = "noodles";
       else if (prevContent.includes("peppers")) foodItem = "peppers";
       else if (prevContent.includes("mushrooms")) foodItem = "mushrooms";
+      else if (prevContent.includes("milk")) foodItem = "milk";
+      else if (prevContent.includes("fish")) foodItem = "fish";
+      else if (prevContent.includes("taco")) foodItem = "taco";
+      else if (prevContent.includes("spinach")) foodItem = "spinach";
+      else if (prevContent.includes("eggs")) foodItem = "eggs";
+      else if (prevContent.includes("bread")) foodItem = "bread";
+      else if (prevContent.includes("chicken")) foodItem = "chicken";
+      else if (prevContent.includes("beef")) foodItem = "beef";
+      else if (prevContent.includes("salmon")) foodItem = "salmon";
+      else if (prevContent.includes("apple")) foodItem = "apple";
+      else if (prevContent.includes("banana")) foodItem = "banana";
+      else if (prevContent.includes("orange")) foodItem = "orange";
+      else if (prevContent.includes("cheese")) foodItem = "cheese";
+      else if (prevContent.includes("pasta")) foodItem = "pasta";
+      else if (prevContent.includes("soup")) foodItem = "soup";
+      else if (prevContent.includes("salad")) foodItem = "salad";
+      else if (prevContent.includes("sandwich")) foodItem = "sandwich";
+      else if (prevContent.includes("pizza")) foodItem = "pizza";
+      else if (prevContent.includes("pancakes")) foodItem = "pancakes";
+      else if (prevContent.includes("waffles")) foodItem = "waffles";
+      else if (prevContent.includes("cereal")) foodItem = "cereal";
       else if (prevContent.includes("ipa") || prevContent.includes("beer")) foodItem = "beer";
       else if (prevContent.includes("wine")) foodItem = "wine";
       else if (prevContent.includes("cocktail")) foodItem = "cocktail";
@@ -361,6 +403,11 @@ export async function POST(req: NextRequest) {
           logEntry.protein = 20;
           logEntry.carbs = 3;
           logEntry.fat = 10;
+        } else if (foodItem === "milk") {
+          logEntry.calories = 150;
+          logEntry.protein = 8;
+          logEntry.carbs = 12;
+          logEntry.fat = 8;
         }
       } else if (lowerMessage.includes("oz")) {
         logEntry.unit = "oz";
