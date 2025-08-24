@@ -77,10 +77,10 @@ export default function FoodLogTable() {
 
   const remaining = goal
     ? {
-        calories: Math.max((goal.targetCalories ?? 0) - totals.calories, 0),
-        protein: Math.max((goal.targetProtein ?? 0) - totals.protein, 0),
-        carbs: Math.max((goal.targetCarbs ?? 0) - totals.carbs, 0),
-        fat: Math.max((goal.targetFat ?? 0) - totals.fat, 0),
+        calories: Math.max(Math.round((goal.targetCalories ?? 0) - totals.calories), 0),
+        protein: Math.max(Math.round((goal.targetProtein ?? 0) - totals.protein), 0),
+        carbs: Math.max(Math.round((goal.targetCarbs ?? 0) - totals.carbs), 0),
+        fat: Math.max(Math.round((goal.targetFat ?? 0) - totals.fat), 0),
       }
     : null;
 
