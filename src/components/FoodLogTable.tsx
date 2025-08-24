@@ -89,7 +89,12 @@ export default function FoodLogTable() {
         calories: Math.max(Math.round((goal.targetCalories ?? 0) - totals.calories), 0),
         protein: Math.max(Math.round((goal.targetProtein ?? 0) - totals.protein), 0),
         carbs: Math.max(Math.round((goal.targetCarbs ?? 0) - totals.carbs), 0),
-        fat: Math.max(Math.round((goal.targetFat ?? 0) - totals.fat), 0),
+        fat: (() => {
+          const fatDiff = (goal.targetFat ?? 0) - totals.fat;
+          if (fatDiff <= 0) return 0;
+          // Round to 1 decimal place for small values
+          return Math.round(fatDiff * 10) / 10;
+        })(),
       }
     : null;
 
