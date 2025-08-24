@@ -12,7 +12,7 @@ export default function GoalsPage() {
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full overflow-hidden">
               <img 
-                src="/bio.jpg" 
+                src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face" 
                 alt="Profile" 
                 className="w-full h-full object-cover"
               />
