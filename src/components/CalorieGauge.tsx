@@ -186,6 +186,17 @@ export default function CalorieGauge() {
           </svg>
         </div>
       </div>
+      
+      {/* Calorie values and percentage */}
+      <div className="text-center mt-2">
+        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Calories</div>
+        <div className="text-xs text-gray-500 dark:text-gray-400">
+          {Math.round(totalCalories)} cal / {Math.round(actualGoal.targetCalories)} cal
+        </div>
+        <div className="text-xs text-gray-500 dark:text-gray-400">
+          {Math.round(percentage)}%
+        </div>
+      </div>
     </div>
   );
 }
