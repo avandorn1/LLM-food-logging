@@ -102,7 +102,16 @@ export default function Chat() {
       {pendingAction && (
         <div className="flex gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
           <div className="flex-1 text-sm">
-            {pendingAction.action === "log" && "Confirm adding these items?"}
+            {pendingAction.action === "log" && (
+              <div>
+                <div className="font-medium mb-2">Confirm adding these items:</div>
+                {pendingAction.logs && Array.isArray(pendingAction.logs) && pendingAction.logs.map((log: any, index: number) => (
+                  <div key={index} className="text-xs mb-1">
+                    • {log.item} ({log.quantity} {log.unit}): {Math.round(log.calories || 0)} cal, {Math.round(log.protein || 0)}g protein, {Math.round(log.carbs || 0)}g carbs, {Math.round(log.fat || 0)}g fat
+                  </div>
+                ))}
+              </div>
+            )}
             {pendingAction.action === "remove" && "Confirm removing these items?"}
           </div>
           <div className="flex gap-2">
