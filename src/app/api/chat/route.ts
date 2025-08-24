@@ -746,21 +746,8 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
         
         const hasQuantities = quantityPatterns.some(pattern => pattern.test(message));
         
-        if (hasQuantities) {
-          // Message already has quantities, don't interfere - let the AI process normally
-          console.log("DEBUG: Message contains quantities, not interfering with AI processing");
-          // Don't return anything here - let the code continue to the AI processing
-        } else {
-          // No quantities found, ask for clarification
-          return NextResponse.json({
-            action: "chat", // Use "chat" action for clarification questions, not "log"
-            logs: [],
-            needsConfirmation: false, // No confirmation needed for clarification questions
-            reply: "I see you want to log some food. Could you tell me roughly how much you had? For example: \"1 cup\", \"2 tablespoons\", \"a handful\", etc.",
-            goals: {},
-            itemsToRemove: []
-          });
-        }
+        // Don't interfere with AI processing - let it handle the message normally
+        // The fallback below will catch any issues
       }
       // This is likely a clarification question that wasn't properly formatted
       // Try to extract the question from the AI's raw response
@@ -1269,7 +1256,23 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
     // REMOVED: Auto-logging without confirmation - this was a critical bug
     // All food logging should require explicit confirmation
     if (!finalReply && action === "chat") {
-      finalReply = "I understand. How else can I help you with your nutrition tracking?";
+      // Check if the message contains food items that weren't processed
+      const commonFoodItems = [
+        'oats', 'protein', 'almond', 'yogurt', 'strawberries', 'chia', 'peanut', 'butter',
+        'rice', 'pasta', 'bread', 'eggs', 'chicken', 'beef', 'fish', 'salmon', 'tofu',
+        'vegetables', 'fruits', 'apple', 'banana', 'orange', 'milk', 'cheese', 'sauce',
+        'soup', 'salad', 'sandwich', 'pizza', 'noodles', 'pancakes', 'waffles', 'cereal'
+      ];
+      
+      const containsFoodItems = commonFoodItems.some(keyword => 
+        message.toLowerCase().includes(keyword)
+      );
+      
+      if (containsFoodItems) {
+        finalReply = "I see you mentioned some food items. Let me help you log them. Could you tell me roughly how much you had? For example: \"1 cup\", \"2 tablespoons\", \"a handful\", etc.";
+      } else {
+        finalReply = "I understand. How else can I help you with your nutrition tracking?";
+      }
     }
     if (!finalReply && action === "remove") {
       finalReply = "I can help you remove items from your food log. Please specify which items you'd like to remove.";
