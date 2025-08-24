@@ -60,7 +60,8 @@ export default function FoodLogTable() {
     const prefix = unit === "kcal" ? "~" : "";
     // Round to 2 decimal places maximum, remove trailing zeros
     const rounded = Math.round(value * 100) / 100;
-    const formatted = rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(2).replace(/\.?0+$/, '');
+    // Force to 2 decimal places max and remove trailing zeros
+    const formatted = rounded.toFixed(2).replace(/\.?0+$/, '');
     return `${prefix}${formatted} ${unit}`;
   }
 
@@ -83,6 +84,15 @@ export default function FoodLogTable() {
         fat: Math.max(Math.round((goal.targetFat ?? 0) - totals.fat), 0),
       }
     : null;
+
+  // Debug logging
+  console.log('FoodLogTable debug:', {
+    goal: goal,
+    totals: totals,
+    remaining: remaining,
+    remainingFat: remaining?.fat,
+    formattedFat: remaining ? formatValue(remaining.fat, "g") : "N/A"
+  });
 
   async function requestDelete(id: number) {
     setConfirmId(id);
