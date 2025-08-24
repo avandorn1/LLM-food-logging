@@ -105,7 +105,7 @@ export default function Chat() {
             {pendingAction.action === "log" && (
               <div>
                 <div className="font-medium mb-2">Confirm adding these items:</div>
-                {pendingAction.logs && Array.isArray(pendingAction.logs) && pendingAction.logs.map((log: { item: string; quantity: number; unit: string; calories: number; protein: number; carbs: number; fat: number }, index: number) => (
+                {pendingAction.logs && Array.isArray(pendingAction.logs) && (pendingAction.logs as Array<{ item: string; quantity: number; unit: string; calories: number; protein: number; carbs: number; fat: number }>).map((log, index: number) => (
                   <div key={index} className="text-xs mb-1">
                     • {log.item} ({log.quantity} {log.unit}): {Math.round(log.calories || 0)} cal, {Math.round(log.protein || 0)}g protein, {Math.round(log.carbs || 0)}g carbs, {Math.round(log.fat || 0)}g fat
                   </div>
