@@ -1,4 +1,4 @@
-# 🍎 Demo Forklift - AI Nutrition Tracker
+# 🍎 Forklift - AI Nutrition Tracker
 
 An AI-powered nutrition tracking app built with Next.js, Prisma, and OpenAI. Track your meals, set goals, and get personalized insights with natural language processing.
 
