@@ -1491,7 +1491,15 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
     console.log("DEBUG: logs:", logs);
 
     // Include debug information in development
-    const response: any = {
+    const response: {
+      action: string;
+      reply: string;
+      logs: any[];
+      goals?: any;
+      itemsToRemove?: any[];
+      needsConfirmation: boolean;
+      debug?: any;
+    } = {
       action,
       reply: finalReply ?? "I'm here to help with your nutrition tracking. You can ask me to log food, remove items, or get advice about your goals.",
       logs,
@@ -1505,7 +1513,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
       llmResponse: text,
       parsedJson: parsed,
       modelOutputSuccess: modelOut.success,
-      modelOutputData: modelOut.success ? modelOut.data : (modelOut as any).error,
+      modelOutputData: modelOut.success ? modelOut.data : (modelOut as { error: unknown }).error,
       finalReply,
       action,
       needsConfirmation,
