@@ -95,6 +95,8 @@ export default function Chat() {
       const reply: string = data?.reply ?? "";
       
       // Always log debug info to console if available
+      console.log('🔍 FULL API RESPONSE:', data);
+      
       if (data.debug) {
         console.group('🔍 CHAT DEBUG INFO');
         console.log('📝 Original Message:', data.debug.originalMessage);
@@ -124,6 +126,7 @@ export default function Chat() {
         console.log('🎯 Action:', data.action);
         console.log('❓ Needs Confirmation:', data.needsConfirmation);
         console.log('📦 Logs Length:', data.logs?.length || 0);
+        console.warn('⚠️ NO DEBUG INFO AVAILABLE - check if deployment propagated');
         console.groupEnd();
       }
       
