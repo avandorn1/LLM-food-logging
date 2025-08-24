@@ -727,15 +727,26 @@ CONFIRMATION MESSAGES:
 
 Use your nutrition knowledge to provide accurate estimates. If you're unsure about quantities or need more details, ask specific questions.`;
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: system },
-        ...conversationHistory.slice(-10), // Include last 10 messages for context
-        { role: "user", content: message },
-      ],
-      temperature: 0.2,
-    });
+    console.log("DEBUG: About to call OpenAI API...");
+    console.log("DEBUG: Message to send:", message);
+    console.log("DEBUG: Conversation history length:", conversationHistory.length);
+    
+    let completion;
+    try {
+      completion = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: system },
+          ...conversationHistory.slice(-10), // Include last 10 messages for context
+          { role: "user", content: message },
+        ],
+        temperature: 0.2,
+      });
+      console.log("DEBUG: OpenAI API call successful");
+    } catch (error) {
+      console.error("DEBUG: OpenAI API call failed:", error);
+      throw error;
+    }
 
     const text = completion.choices?.[0]?.message?.content ?? "{}";
     console.log("DEBUG: AI Response:", text);
@@ -1448,7 +1459,9 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
         'oats', 'protein', 'almond', 'yogurt', 'strawberries', 'chia', 'peanut', 'butter',
         'rice', 'pasta', 'bread', 'eggs', 'chicken', 'beef', 'fish', 'salmon', 'tofu',
         'vegetables', 'fruits', 'apple', 'banana', 'orange', 'milk', 'cheese', 'sauce',
-        'soup', 'salad', 'sandwich', 'pizza', 'noodles', 'pancakes', 'waffles', 'cereal'
+        'soup', 'salad', 'sandwich', 'pizza', 'noodles', 'pancakes', 'waffles', 'cereal',
+        'taco', 'spinach', 'lettuce', 'tomato', 'onion', 'pepper', 'carrot', 'broccoli',
+        'cauliflower', 'kale', 'arugula', 'cucumber', 'bell pepper', 'mushroom', 'zucchini'
       ];
       
       const containsFoodItems = commonFoodItems.some(keyword => 
