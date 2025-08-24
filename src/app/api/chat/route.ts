@@ -1226,10 +1226,8 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
       console.log("DEBUG: Pending items found:", pendingItems.length);
       console.log("DEBUG: Total items in confirmation:", allItems.length);
     }
-    if (!finalReply && logs.length > 0) {
-      const itemNames = logs.map(log => log.item).join(", ");
-      finalReply = `Logged ${logs.length} item(s): ${itemNames}.`;
-    }
+    // REMOVED: Auto-logging without confirmation - this was a critical bug
+    // All food logging should require explicit confirmation
     if (!finalReply && action === "chat") {
       finalReply = "I understand. How else can I help you with your nutrition tracking?";
     }
@@ -1257,7 +1255,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
 
     return NextResponse.json({
       action,
-      reply: finalReply ?? (logs.length > 0 ? `Logged ${logs.length} entr${logs.length === 1 ? "y" : "ies"}.` : ""),
+      reply: finalReply ?? "I'm here to help with your nutrition tracking. You can ask me to log food, remove items, or get advice about your goals.",
       logs,
       goals: newGoals,
       itemsToRemove,
