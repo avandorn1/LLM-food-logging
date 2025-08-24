@@ -60,6 +60,10 @@ export default function FoodLogTable() {
     const prefix = unit === "kcal" ? "~" : "";
     // Round to 2 decimal places maximum
     const rounded = Math.round(value * 100) / 100;
+    // Special bandaid for fat values to avoid floating point precision issues
+    if (unit === "g" && value !== null && value < 1 && value > 0) {
+      return `${prefix}${Math.round(value * 10) / 10} ${unit}`;
+    }
     return `${prefix}${rounded} ${unit}`;
   }
 
