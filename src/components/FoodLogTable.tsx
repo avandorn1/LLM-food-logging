@@ -58,7 +58,10 @@ export default function FoodLogTable() {
   function formatValue(value: number | null | undefined, unit: string): string {
     if (value == null) return "";
     const prefix = unit === "kcal" ? "~" : "";
-    return `${prefix}${value} ${unit}`;
+    // Round to 2 decimal places maximum, remove trailing zeros
+    const rounded = Math.round(value * 100) / 100;
+    const formatted = rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(2).replace(/\.?0+$/, '');
+    return `${prefix}${formatted} ${unit}`;
   }
 
   const totals = rows.reduce(
