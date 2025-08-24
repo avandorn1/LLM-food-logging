@@ -9,6 +9,8 @@ type PendingAction = {
   itemsToRemove?: unknown[];
 };
 
+
+
 export default function Chat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,6 +19,7 @@ export default function Chat() {
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [isDoneLogging, setIsDoneLogging] = useState(false);
   const [exampleIndex, setExampleIndex] = useState(0);
+
   const listRef = useRef<HTMLDivElement | null>(null);
 
   // Rotating example messages
@@ -90,6 +93,39 @@ export default function Chat() {
       });
       const data = await res.json();
       const reply: string = data?.reply ?? "";
+      
+      // Always log debug info to console if available
+      if (data.debug) {
+        console.group('🔍 CHAT DEBUG INFO');
+        console.log('📝 Original Message:', data.debug.originalMessage);
+        console.log('🤖 LLM Response:', data.debug.llmResponse);
+        console.log('📊 Parsed JSON:', data.debug.parsedJson);
+        console.log('✅ Model Output Success:', data.debug.modelOutputSuccess);
+        console.log('📋 Model Output Data:', data.debug.modelOutputData);
+        console.log('💬 Final Reply:', data.debug.finalReply);
+        console.log('🎯 Action:', data.debug.action);
+        console.log('❓ Needs Confirmation:', data.debug.needsConfirmation);
+        console.log('📦 Logs Length:', data.debug.logsLength);
+        console.log('🔄 Conversation History Length:', data.debug.conversationHistoryLength);
+        
+        // Highlight issues
+        if (!data.debug.modelOutputSuccess) {
+          console.warn('⚠️ ISSUE: Model output parsing failed');
+        }
+        if (!data.debug.finalReply || data.debug.finalReply.trim() === "") {
+          console.warn('⚠️ ISSUE: Final reply is empty');
+        }
+        console.groupEnd();
+      } else {
+        // If no debug info available, still log the basic response
+        console.group('🔍 CHAT RESPONSE');
+        console.log('📝 Original Message:', toSend);
+        console.log('💬 Final Reply:', reply);
+        console.log('🎯 Action:', data.action);
+        console.log('❓ Needs Confirmation:', data.needsConfirmation);
+        console.log('📦 Logs Length:', data.logs?.length || 0);
+        console.groupEnd();
+      }
       
       // Handle confirmation flow
       if (data.needsConfirmation) {

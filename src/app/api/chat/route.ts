@@ -160,11 +160,26 @@ export async function POST(req: NextRequest) {
     const { message, userId: providedUserId, day, conversationHistory = [] } = MessageSchema.parse(json);
 
     // Ensure user exists (single-user fallback: id=1)
-    const user = await prisma.user.upsert({
-      where: { id: providedUserId ?? 1 },
-      update: {},
-      create: { id: providedUserId ?? 1 },
-    });
+    let user;
+    try {
+      user = await prisma.user.upsert({
+        where: { id: providedUserId ?? 1 },
+        update: {},
+        create: { id: providedUserId ?? 1 },
+      });
+    } catch (dbError) {
+      console.error("Database connection failed:", dbError);
+      return NextResponse.json({
+        action: "chat",
+        reply: "I'm having trouble connecting to your data right now. This might be a temporary issue. Please try again in a moment, or check your internet connection.\n\nYou can still try:\n• Logging food: \"I had 2 eggs for breakfast\"\n• Asking for help: \"What can you do?\"",
+        logs: [],
+        goals: {},
+        itemsToRemove: [],
+        needsConfirmation: false,
+        error: true,
+        errorType: "database"
+      });
+    }
 
     // Check if this is a quantity response to a clarification question
     const lowerMessage = message.toLowerCase();
@@ -197,13 +212,31 @@ export async function POST(req: NextRequest) {
     console.log("DEBUG: Message length:", message.length);
     console.log("DEBUG: Contains 'i had':", message.toLowerCase().includes("i had"));
     
+    // Check if the message contains a complete food item description (not just a quantity)
+    const containsCompleteFoodItem = message.toLowerCase().includes("i had") || 
+                                    message.toLowerCase().includes("i ate") || 
+                                    message.toLowerCase().includes("i drank") ||
+                                    message.toLowerCase().includes("ipa") ||
+                                    message.toLowerCase().includes("beer") ||
+                                    message.toLowerCase().includes("wine") ||
+                                    message.toLowerCase().includes("cocktail") ||
+                                    message.toLowerCase().includes("coffee") ||
+                                    message.toLowerCase().includes("tea") ||
+                                    message.toLowerCase().includes("juice") ||
+                                    message.toLowerCase().includes("soda") ||
+                                    message.toLowerCase().includes("water") ||
+                                    message.toLowerCase().includes("yogurt") ||
+                                    message.toLowerCase().includes("rice") ||
+                                    message.toLowerCase().includes("tofu") ||
+                                    message.toLowerCase().includes("noodles") ||
+                                    message.toLowerCase().includes("sauce");
+    
     // Only trigger if this is a short response (likely a quantity) to a clarification question
+    // AND the message doesn't contain a complete food item description
     const isShortQuantityResponse = hasQuantity && 
       wasClarificationQuestion && 
       message.length < 50 && 
-      !message.toLowerCase().includes("i had") &&
-      !message.toLowerCase().includes("i ate") &&
-      !message.toLowerCase().includes("i drank");
+      !containsCompleteFoodItem;
     
     console.log("DEBUG: Is short quantity response:", isShortQuantityResponse);
     
@@ -216,6 +249,36 @@ export async function POST(req: NextRequest) {
       const prevContent = previousMessage.content.toLowerCase();
       let foodItem = "food item";
       
+      // If we can't identify the food item, ask for clarification instead of using generic placeholder
+      const canIdentifyFoodItem = prevContent.includes("yogurt") || 
+                                 prevContent.includes("sauce") || 
+                                 prevContent.includes("rice") || 
+                                 prevContent.includes("tofu") || 
+                                 prevContent.includes("noodles") || 
+                                 prevContent.includes("peppers") || 
+                                 prevContent.includes("mushrooms") ||
+                                 prevContent.includes("ipa") || 
+                                 prevContent.includes("beer") ||
+                                 prevContent.includes("wine") ||
+                                 prevContent.includes("cocktail") ||
+                                 prevContent.includes("coffee") ||
+                                 prevContent.includes("tea") ||
+                                 prevContent.includes("juice") ||
+                                 prevContent.includes("soda") ||
+                                 prevContent.includes("water");
+      
+      if (!canIdentifyFoodItem) {
+        console.log("DEBUG: Cannot identify food item from previous message, asking for clarification");
+        return NextResponse.json({
+          action: "chat",
+          reply: "I'm not sure what food item you're referring to. Could you please tell me what you had?",
+          logs: [],
+          goals: {},
+          itemsToRemove: [],
+          needsConfirmation: false,
+        });
+      }
+      
       if (prevContent.includes("yogurt")) foodItem = "yogurt";
       else if (prevContent.includes("sauce")) foodItem = "sauce";
       else if (prevContent.includes("rice")) foodItem = "rice";
@@ -223,6 +286,14 @@ export async function POST(req: NextRequest) {
       else if (prevContent.includes("noodles")) foodItem = "noodles";
       else if (prevContent.includes("peppers")) foodItem = "peppers";
       else if (prevContent.includes("mushrooms")) foodItem = "mushrooms";
+      else if (prevContent.includes("ipa") || prevContent.includes("beer")) foodItem = "beer";
+      else if (prevContent.includes("wine")) foodItem = "wine";
+      else if (prevContent.includes("cocktail")) foodItem = "cocktail";
+      else if (prevContent.includes("coffee")) foodItem = "coffee";
+      else if (prevContent.includes("tea")) foodItem = "tea";
+      else if (prevContent.includes("juice")) foodItem = "juice";
+      else if (prevContent.includes("soda")) foodItem = "soda";
+      else if (prevContent.includes("water")) foodItem = "water";
       
       // Create a log entry with the quantity response
       const logEntry = {
@@ -428,22 +499,30 @@ export async function POST(req: NextRequest) {
     const easternDate = new Date(now.toLocaleDateString("en-US", {timeZone: "America/New_York"}));
     const dayDate = startOfDay(day ? new Date(day) : easternDate);
 
-    // Get user's goals
-    const goals = await prisma.goal.findUnique({
-      where: { userId: user.id },
-    });
+    // Get user's goals and today's logs with error handling
+    let goals: any = null;
+    let todayLogs: any[] = [];
+    try {
+      goals = await prisma.goal.findUnique({
+        where: { userId: user.id },
+      });
 
-    // Get today's food logs for progress tracking
-    const todayLogs = await prisma.foodLog.findMany({
-      where: {
-        userId: user.id,
-        loggedAt: {
-          gte: dayDate,
-          lt: new Date(dayDate.getTime() + 24 * 60 * 60 * 1000),
+      todayLogs = await prisma.foodLog.findMany({
+        where: {
+          userId: user.id,
+          loggedAt: {
+            gte: dayDate,
+            lt: new Date(dayDate.getTime() + 24 * 60 * 60 * 1000),
+          },
         },
-      },
-      orderBy: { loggedAt: "asc" },
-    });
+        orderBy: { loggedAt: "asc" },
+      });
+    } catch (dbError) {
+      console.error("Database query failed:", dbError);
+      // Continue with empty data rather than failing completely
+      goals = null;
+      todayLogs = [];
+    }
 
     // Calculate today's totals
     const todayTotals = todayLogs.reduce(
@@ -485,6 +564,15 @@ FOOD LOGGING INTENT: Be very liberal in detecting food logging intent. If the us
 - Just mentioning a food item when already logging - add to current list
 
 CRITICAL: If the user mentions any food item (like "sauce", "yaki soba", "eggs", "toast", etc.), ALWAYS treat it as food logging intent. Do not return generic "I'm here to help" responses for food items.
+
+IMPORTANT: NEVER log generic items like "food item", "item", "food", etc. If you cannot identify the specific food item, ask for clarification instead of logging a generic placeholder.
+
+BEVERAGE LOGGING: Alcoholic and non-alcoholic beverages are also food items that should be logged. Common beverage patterns include:
+- "I had a [beverage]" - log the beverage
+- "I drank [beverage]" - log the beverage  
+- "[beverage] too" - add to current list
+- "also [beverage]" - add to current list
+- Examples: "IPA", "beer", "wine", "cocktail", "coffee", "tea", "juice", "soda", "water"
 
 When in doubt, treat it as food logging and let the user confirm or deny at the end.
 
@@ -571,7 +659,7 @@ QUANTITY CLARIFICATION:
 - Examples of good clarification questions: "Roughly how much rice?", "About how much tofu?", "How much roughly?"
 - Examples of bad clarification questions: "What specific veggies will you include, and how much of each?", "Please provide these details", "How much of each are you planning to use?"
 - Examples that typically need clarification: "some food", "a bit of food", "food" (with no context)
-- Examples that DON'T need clarification: "half pack of tofu", "a cup of rice", "2 eggs", "1 apple", "a glass of wine", "a slice of bread", "a bowl of soup", "a serving of pasta", "a handful of nuts"
+- Examples that DON'T need clarification: "half pack of tofu", "a cup of rice", "2 eggs", "1 apple", "a glass of wine", "a slice of bread", "a bowl of soup", "a serving of pasta", "a handful of nuts", "20 oz IPA", "12 oz beer", "5 oz wine", "1 cocktail", "16 oz coffee"
 
 USE INTUITION FOR MOST QUANTITIES:
 - Make reasonable estimates for most food items based on common serving sizes
@@ -581,13 +669,17 @@ USE INTUITION FOR MOST QUANTITIES:
 - "A slice of bread" = 1 slice
 - "A bowl of soup" = approximately 1.5 cups
 - "A serving of pasta" = approximately 1 cup cooked
+- "20 oz IPA" = 20 oz (standard large beer)
+- "12 oz beer" = 12 oz (standard beer bottle/can)
+- "5 oz wine" = 5 oz (standard wine glass)
+- "1 cocktail" = approximately 8-10 oz (typical cocktail)
 - Only ask for clarification when the quantity is completely unclear or could vary dramatically (e.g., "some food" with no context)
 
 CLARIFICATION RESPONSES:
 - When the user responds to a clarification question with a quantity (e.g., "1.5 cups", "2 tablespoons", "1/2 cup", "a tablespoon", "1 cup", "2 eggs", "idk a tbsp", "maybe a tbsp", "like a tbsp"), you MUST log the food item with that quantity
 - Set action to "log", include the food item with the provided quantity, and set needsConfirmation to true
 - Do NOT ask for more clarification if the user has provided a clear quantity
-- Examples of clear quantities: "1.5 cups of rice", "2 tablespoons of peanut butter", "1/2 cup of yogurt", "1 apple", "2 eggs", "a tablespoon", "1 cup", "a handful", "a slice", "idk a tbsp", "maybe a tbsp", "like a tbsp", "a tbsp"
+- Examples of clear quantities: "1.5 cups of rice", "2 tablespoons of peanut butter", "1/2 cup of yogurt", "1 apple", "2 eggs", "a tablespoon", "1 cup", "a handful", "a slice", "idk a tbsp", "maybe a tbsp", "like a tbsp", "a tbsp", "20 oz IPA", "12 oz beer", "5 oz wine", "1 cocktail"
 - If the user provides a quantity in response to your clarification question, immediately log the food with that quantity
 
 UNCERTAIN RESPONSES:
@@ -654,14 +746,49 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
     console.log("DEBUG: Model output data:", modelOut.success ? modelOut.data : "N/A");
 
     if (!modelOut.success) {
+      console.error("AI Response Parsing Failed:", {
+        originalText: text,
+        parsed: parsed,
+        errors: modelOut.error?.errors || []
+      });
+      
+      // Check if the message contains food items that should be logged
+      const commonFoodItems = [
+        'oats', 'protein', 'almond', 'yogurt', 'strawberries', 'chia', 'peanut', 'butter',
+        'rice', 'pasta', 'bread', 'eggs', 'chicken', 'beef', 'fish', 'salmon', 'tofu',
+        'vegetables', 'fruits', 'apple', 'banana', 'orange', 'milk', 'cheese', 'sauce',
+        'soup', 'salad', 'sandwich', 'pizza', 'noodles', 'pancakes', 'waffles', 'cereal',
+        'ipa', 'beer', 'ale', 'lager', 'stout', 'wine', 'cocktail', 'drink', 'beverage',
+        'whiskey', 'vodka', 'gin', 'rum', 'tequila', 'bourbon', 'scotch', 'brandy'
+      ];
+      
+      const containsFoodItems = commonFoodItems.some(keyword => 
+        message.toLowerCase().includes(keyword)
+      );
+      
+      if (containsFoodItems) {
+        return NextResponse.json({
+          action: "chat",
+          reply: "I see you want to log some food, but I'm having trouble processing the details. Could you try rephrasing? For example: \"I had 2 eggs\" or \"I drank a 20 oz IPA\"",
+          logs: [],
+          goals: {},
+          itemsToRemove: [],
+          needsConfirmation: false,
+          error: true,
+          errorType: "parsing"
+        });
+      }
+      
       // Return a fallback response instead of error
       return NextResponse.json({
         action: "chat",
-        reply: "Sorry, I didn't quite understand that. You can:\n• Log food: \"I had 2 eggs for breakfast\"\n• Ask for suggestions: \"What should I eat?\"\n• Remove items: \"Remove the eggs from today\"\n• Get help: \"What can you do?\"",
+        reply: "I'm having trouble understanding that right now. You can:\n• Log food: \"I had 2 eggs for breakfast\"\n• Ask for suggestions: \"What should I eat?\"\n• Remove items: \"Remove the eggs from today\"\n• Get help: \"What can you do?\"",
         logs: [],
         goals: {},
         itemsToRemove: [],
         needsConfirmation: false,
+        error: true,
+        errorType: "parsing"
       });
     }
 
@@ -680,6 +807,28 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
     console.log("DEBUG: Original message:", message);
     console.log("DEBUG: Message contains 'had':", message.toLowerCase().includes("had"));
     console.log("DEBUG: Message contains 'also':", message.toLowerCase().includes("also"));
+
+    // Validate that no generic food items are being logged
+    const genericFoodItems = ['food item', 'item', 'food', 'unknown item', 'unknown food'];
+    const hasGenericItems = logs.some(log => 
+      genericFoodItems.some(generic => 
+        log.item.toLowerCase().includes(generic.toLowerCase())
+      )
+    );
+    
+    if (hasGenericItems) {
+      console.error("CRITICAL: AI attempted to log generic food items:", logs);
+      return NextResponse.json({
+        action: "chat",
+        reply: "I'm having trouble identifying what food item you're referring to. Could you please be more specific? For example: \"I had a 20 oz IPA\" or \"I ate 2 eggs\"",
+        logs: [],
+        goals: {},
+        itemsToRemove: [],
+        needsConfirmation: false,
+        error: true,
+        errorType: "generic_item"
+      });
+    }
 
     // Check if the AI returned valid JSON but didn't handle a quantity response properly
     if (action === "chat" && reply && reply.toLowerCase().includes("i'm here to help") && 
@@ -727,7 +876,9 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
         'oats', 'protein', 'almond', 'yogurt', 'strawberries', 'chia', 'peanut', 'butter',
         'rice', 'pasta', 'bread', 'eggs', 'chicken', 'beef', 'fish', 'salmon', 'tofu',
         'vegetables', 'fruits', 'apple', 'banana', 'orange', 'milk', 'cheese', 'sauce',
-        'soup', 'salad', 'sandwich', 'pizza', 'noodles', 'pancakes', 'waffles', 'cereal'
+        'soup', 'salad', 'sandwich', 'pizza', 'noodles', 'pancakes', 'waffles', 'cereal',
+        'ipa', 'beer', 'ale', 'lager', 'stout', 'wine', 'cocktail', 'drink', 'beverage',
+        'whiskey', 'vodka', 'gin', 'rum', 'tequila', 'bourbon', 'scotch', 'brandy'
       ];
       
       const containsFoodItems = commonFoodItems.some(keyword => 
@@ -1314,7 +1465,14 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
       finalReply = "I can help you remove items from your food log. Please specify which items you'd like to remove.";
     }
     if (!finalReply) {
+      console.warn("No finalReply generated, using fallback message");
       finalReply = "I'm here to help with your nutrition tracking. You can ask me to log food, remove items, or get advice about your goals.";
+    }
+    
+    // Final safety check - ensure we never return an empty reply
+    if (!finalReply || finalReply.trim() === "") {
+      console.error("CRITICAL: Empty finalReply detected, using emergency fallback");
+      finalReply = "I'm having trouble responding right now. Please try again or rephrase your message.";
     }
 
     // Upsert goals
@@ -1332,16 +1490,83 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
     console.log("DEBUG: needsConfirmation:", needsConfirmation);
     console.log("DEBUG: logs:", logs);
 
-    return NextResponse.json({
+    // Include debug information in development
+    const response: any = {
       action,
       reply: finalReply ?? "I'm here to help with your nutrition tracking. You can ask me to log food, remove items, or get advice about your goals.",
       logs,
       goals: newGoals,
       itemsToRemove,
       needsConfirmation,
-    });
+    };
+
+    // Always add debug information (for production debugging)
+    response.debug = {
+      llmResponse: text,
+      parsedJson: parsed,
+      modelOutputSuccess: modelOut.success,
+      modelOutputData: modelOut.success ? modelOut.data : (modelOut as any).error,
+      finalReply,
+      action,
+      needsConfirmation,
+      logsLength: logs.length,
+      originalMessage: message,
+      conversationHistoryLength: conversationHistory.length
+    };
+
+    return NextResponse.json(response);
   } catch (err: unknown) {
-    return NextResponse.json({ error: getErrorMessage(err) }, { status: 500 });
+    console.error("Chat API Error:", err);
+    
+    // Provide user-friendly error messages based on the error type
+    let errorMessage = "I'm having trouble processing your request right now.";
+    let isDatabaseError = false;
+    
+    if (err instanceof Error) {
+      const errorStr = err.message.toLowerCase();
+      
+      // Database connection errors
+      if (errorStr.includes("can't reach database") || 
+          errorStr.includes("database server") ||
+          errorStr.includes("connection") ||
+          errorStr.includes("timeout")) {
+        errorMessage = "I'm having trouble connecting to your data right now. Please try again in a moment, or check your internet connection.";
+        isDatabaseError = true;
+      }
+      
+      // OpenAI API errors
+      else if (errorStr.includes("openai") || 
+               errorStr.includes("api key") ||
+               errorStr.includes("rate limit")) {
+        errorMessage = "I'm having trouble processing your request. Please try again in a moment.";
+      }
+      
+      // Network errors
+      else if (errorStr.includes("network") || 
+               errorStr.includes("fetch") ||
+               errorStr.includes("timeout")) {
+        errorMessage = "I'm having trouble connecting to my services. Please check your internet connection and try again.";
+      }
+      
+      // JSON parsing errors
+      else if (errorStr.includes("json") || 
+               errorStr.includes("parse") ||
+               errorStr.includes("syntax")) {
+        errorMessage = "I received an unexpected response. Please try rephrasing your message.";
+      }
+    }
+    
+    // Return a structured error response that the frontend can handle
+    return NextResponse.json({
+      action: "chat",
+      reply: errorMessage + "\n\nYou can still try:\n• Logging food: \"I had 2 eggs for breakfast\"\n• Asking for help: \"What can you do?\"",
+      logs: [],
+      goals: {},
+      itemsToRemove: [],
+      needsConfirmation: false,
+      error: true,
+      errorType: isDatabaseError ? "database" : "general"
+    }, { status: 200 }); // Return 200 instead of 500 so frontend can handle it gracefully
   }
 }
 
