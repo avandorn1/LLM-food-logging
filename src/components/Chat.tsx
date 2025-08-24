@@ -16,7 +16,22 @@ export default function Chat() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [isDoneLogging, setIsDoneLogging] = useState(false);
+  const [exampleIndex, setExampleIndex] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  // Rotating example messages
+  const exampleMessages = [
+    "I had 2 eggs and toast for breakfast",
+    "Give me an idea of something healthy with yogurt",
+    "What's a good high-protein lunch option?",
+    "I ate a chicken salad for lunch",
+    "Suggest a quick dinner recipe under 500 calories",
+    "How many calories are in a medium apple?",
+    "I had coffee with cream and sugar this morning",
+    "What's a good post-workout snack?",
+    "I made pasta with marinara sauce for dinner",
+    "Give me breakfast ideas for someone who doesn't like eggs"
+  ];
 
   // Show welcome message on first load
   useEffect(() => {
@@ -46,6 +61,17 @@ export default function Chat() {
     window.addEventListener("done-logging", handleDoneLogging);
     return () => window.removeEventListener("done-logging", handleDoneLogging);
   }, []);
+
+  // Rotate example messages every 4 seconds
+  useEffect(() => {
+    if (isDoneLogging) return;
+    
+    const interval = setInterval(() => {
+      setExampleIndex((prev) => (prev + 1) % exampleMessages.length);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [exampleMessages.length, isDoneLogging]);
 
   async function sendMessage() {
     if (!input.trim() || isDoneLogging) return;
@@ -167,7 +193,7 @@ export default function Chat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
-          placeholder={isDoneLogging ? "Logging complete for today" : "e.g. I had 2 eggs and toast for breakfast"}
+          placeholder={isDoneLogging ? "Logging complete for today" : `e.g. ${exampleMessages[exampleIndex]}`}
           disabled={isDoneLogging}
           className={`flex-1 border rounded-lg px-3 py-2 bg-transparent ${
             isDoneLogging ? 'opacity-50 cursor-not-allowed' : ''
