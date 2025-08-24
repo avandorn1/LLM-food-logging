@@ -511,8 +511,8 @@ For simple, single items (direct logging):
   "logs": [
     {"item": "apple", "quantity": 1, "unit": "medium", "calories": 95, "protein": 0, "carbs": 25, "fat": 0}
   ],
-  "needsConfirmation": false,
-  "reply": "Logged 1 medium apple (95 cal, 0g protein, 25g carbs, 0g fat)."
+  "needsConfirmation": true,
+  "reply": ""
 }
 
 For multiple items (confirmation required):
@@ -538,7 +538,7 @@ For nutrition feedback (update and confirm):
 
 Rules:
 - If the user mentions food they ate (using words like "had", "ate", "drank", "consumed"), set action to "log", add the food to logs array
-- For simple, single food items with clear nutrition data, set needsConfirmation to false and log directly
+- For ALL food items, set needsConfirmation to true to require user confirmation
 - For multiple items or complex meals, set needsConfirmation to true to show the complete list
 - If you have enough information to provide accurate nutrition estimates, include calories, protein, carbs, and fat in the log entry
 - If you need more information to provide accurate estimates, set action to "chat" and ask specific clarifying questions in the reply field
@@ -547,10 +547,10 @@ Rules:
 CRITICAL: When needsConfirmation is true, you MUST leave the reply field completely empty. The system will auto-generate the confirmation message and show confirmation buttons.
 
 LOGGING ACTIONS:
-- When logging simple, single food items with clear nutrition data, set action to "log", include the logs array, and set needsConfirmation to false for direct logging
+- When logging ANY food items, set action to "log", include the logs array, and set needsConfirmation to true to require user confirmation
 - When logging multiple items or complex meals, set action to "log", include the logs array, and set needsConfirmation to true to show the complete list
 - When needsConfirmation is true, leave reply field completely empty
-- When needsConfirmation is false, provide a brief confirmation message in the reply field
+- ALL food logging requires confirmation - never set needsConfirmation to false
 - The system will automatically generate detailed confirmation messages when needsConfirmation is true
 - IMPORTANT: If the user mentions multiple food items in the conversation before confirming, accumulate ALL items and show the complete list in the confirmation message
 - For example: If user says "I had eggs and toast" then adds "and coffee", show all 3 items (eggs, toast, coffee) in the confirmation
@@ -716,7 +716,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
       // Treat this as a food logging request that needs quantity clarification
       action = "chat";
       logs = [];
-      needsConfirmation = false;
+      needsConfirmation = true; // Always require confirmation for food logging
       reply = "I see you want to log some food. Could you tell me roughly how much you had? For example: \"1 cup\", \"2 tablespoons\", \"a handful\", etc.";
     }
 
