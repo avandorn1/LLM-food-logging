@@ -1255,6 +1255,42 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
     }
     // REMOVED: Auto-logging without confirmation - this was a critical bug
     // All food logging should require explicit confirmation
+    
+    // If we have logs to confirm but no finalReply, generate a confirmation message
+    if (!finalReply && action === "log" && logs.length > 0) {
+      console.log("DEBUG: Generating confirmation message for logs:", logs);
+      const lines = logs
+        .map((log) => {
+          const quantityText = log.quantity && log.unit ? ` (${log.quantity} ${log.unit})` : "";
+          const hasNutritionData = log.calories !== null && log.calories !== undefined || 
+                                  log.protein !== null && log.protein !== undefined || 
+                                  log.carbs !== null && log.carbs !== undefined || 
+                                  log.fat !== null && log.fat !== undefined;
+          
+          if (hasNutritionData) {
+            return `- ${log.item}${quantityText}: ${Math.round(log.calories ?? 0)} cal, ${Math.round(log.protein ?? 0)}g protein, ${Math.round(log.carbs ?? 0)}g carbs, ${Math.round(log.fat ?? 0)}g fat`;
+          } else {
+            return `- ${log.item}${quantityText} (nutrition data not available)`;
+          }
+        })
+        .join("\n");
+      
+      if (logs.length === 1) {
+        finalReply = `Please confirm adding:\n${lines}\n\nReply with "yes" to confirm or "no" to cancel.`;
+      } else {
+        const totals = logs.reduce(
+          (acc, log) => ({
+            calories: acc.calories + (log.calories || 0),
+            protein: acc.protein + (log.protein || 0),
+            carbs: acc.carbs + (log.carbs || 0),
+            fat: acc.fat + (log.fat || 0),
+          }),
+          { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        );
+        finalReply = `Please confirm adding the following ${logs.length} item(s):\n${lines}\n\nTotals: ${Math.round(totals.calories)} cal, ${Math.round(totals.protein)}g protein, ${Math.round(totals.carbs)}g carbs, ${Math.round(totals.fat)}g fat\n\nReply with "yes" to confirm or "no" to cancel.`;
+      }
+    }
+    
     if (!finalReply && action === "chat") {
       // Check if the message contains food items that weren't processed
       const commonFoodItems = [
