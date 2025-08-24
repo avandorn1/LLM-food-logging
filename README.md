@@ -1,4 +1,4 @@
-# 🍎 Nutri AI Tracker
+# 🍎 Demo Forklift - AI Nutrition Tracker
 
 An AI-powered nutrition tracking app built with Next.js, Prisma, and OpenAI. Track your meals, set goals, and get personalized insights with natural language processing.
 
@@ -52,7 +52,9 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## 🚀 Deployment
 
-This app is configured for deployment on Vercel with Supabase. See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed setup instructions.
+This app is deployed at: **https://demo-forklift.vercel.app**
+
+The app is configured for deployment on Vercel with Supabase. See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed setup instructions.
 
 ### Quick Deploy
 

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Forklift",
+  title: "Demo Forklift - AI Nutrition Tracker",
   description: "AI-powered nutrition tracking and goal management",
   icons: {
     icon: '/favicon.svg',
@@ -42,7 +42,7 @@ export default function RootLayout({
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                     <ForkliftIcon />
                   </div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">Forklift</h1>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">Demo Forklift</h1>
                 </div>
                 <Navigation />
               </div>
