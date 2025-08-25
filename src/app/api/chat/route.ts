@@ -733,30 +733,28 @@ CRITICAL JSON FORMAT:
 - CRITICAL: If you need to log food with confirmation, use {"action": "log", "logs": [...], "needsConfirmation": true}
 
 QUANTITY CLARIFICATION:
-- Only ask for clarification when NO reasonable assumption can be made about the quantity
-- For most food items, make reasonable estimates based on common serving sizes and context
-- Set action to "chat" and put your clarification question in the "reply" field of the JSON response only when absolutely necessary
+- Ask for clarification when the quantity is unclear or could vary significantly
+- Only make assumptions for very clear, standard quantities
+- Set action to "chat" and put your clarification question in the "reply" field of the JSON response when quantity is unclear
 - When asking for clarification, use casual language and ask for "rough" amounts (e.g., "How much roughly?", "About how much?", "Roughly how much?")
 - Keep clarification questions simple and casual - avoid formal, detailed questions
 - Ask about ONE item at a time - do not ask about multiple items in the same question
 - Examples of good clarification questions: "Roughly how much rice?", "About how much tofu?", "How much roughly?"
 - Examples of bad clarification questions: "What specific veggies will you include, and how much of each?", "Please provide these details", "How much of each are you planning to use?"
-- Examples that typically need clarification: "some food", "a bit of food", "food" (with no context)
-- Examples that DON'T need clarification: "half pack of tofu", "a cup of rice", "2 eggs", "1 apple", "a glass of wine", "a slice of bread", "a bowl of soup", "a serving of pasta", "a handful of nuts", "20 oz IPA", "12 oz beer", "5 oz wine", "1 cocktail", "16 oz coffee"
+- Examples that typically need clarification: "some food", "a bit of food", "food" (with no context), "chicken and vegetables", "stir fry", "a meal", "dinner", "lunch", "breakfast", "a snack"
+- Examples that DON'T need clarification: "2 eggs", "1 apple", "20 oz IPA", "12 oz beer", "5 oz wine", "1 cocktail", "16 oz coffee", "1 cup of rice", "1 slice of bread"
 
 USE INTUITION FOR MOST QUANTITIES:
-- Make reasonable estimates for most food items based on common serving sizes
-- "Half pack of tofu" = approximately 7-8 oz (half of typical 14-16 oz package)
-- "A cup of rice" = 1 cup cooked rice
-- "A handful of nuts" = approximately 1/4 cup
-- "A slice of bread" = 1 slice
-- "A bowl of soup" = approximately 1.5 cups
-- "A serving of pasta" = approximately 1 cup cooked
+- Only make assumptions for very clear, specific quantities
+- "2 eggs" = 2 eggs
+- "1 apple" = 1 medium apple
 - "20 oz IPA" = 20 oz (standard large beer)
 - "12 oz beer" = 12 oz (standard beer bottle/can)
 - "5 oz wine" = 5 oz (standard wine glass)
 - "1 cocktail" = approximately 8-10 oz (typical cocktail)
-- Only ask for clarification when the quantity is completely unclear or could vary dramatically (e.g., "some food" with no context)
+- "1 cup of rice" = 1 cup cooked rice
+- "1 slice of bread" = 1 slice
+- Ask for clarification for anything that could vary significantly (e.g., "chicken and vegetables", "stir fry", "a meal")
 
 CLARIFICATION RESPONSES:
 - When the user responds to a clarification question with a quantity (e.g., "1.5 cups", "2 tablespoons", "1/2 cup", "a tablespoon", "1 cup", "2 eggs", "idk a tbsp", "maybe a tbsp", "like a tbsp"), you MUST log the food item with that quantity
