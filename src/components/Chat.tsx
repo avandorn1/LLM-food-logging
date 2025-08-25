@@ -84,12 +84,15 @@ export default function Chat() {
     setInput("");
     setLoading(true);
     try {
+      const conversationHistory = messages.map(m => ({ role: m.role, content: m.content }));
+      console.log("🔍 Sending conversation history:", conversationHistory);
+      
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           message: toSend,
-          conversationHistory: messages.map(m => ({ role: m.role, content: m.content }))
+          conversationHistory: conversationHistory
         }),
       });
       const data = await res.json();
