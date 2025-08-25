@@ -22,6 +22,7 @@ export default function Chat() {
   const [exampleIndex, setExampleIndex] = useState(0);
 
   const listRef = useRef<HTMLDivElement | null>(null);
+  const conversationClearedRef = useRef(false);
 
   // Rotating example messages
   const exampleMessages = [
@@ -84,6 +85,29 @@ export default function Chat() {
     setInput("");
     setLoading(true);
     try {
+      // Check if conversation was cleared after food logging
+      if (conversationClearedRef.current) {
+        conversationClearedRef.current = false;
+        console.log("🔍 Conversation was cleared, starting fresh");
+        // Send empty conversation history to start fresh
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            message: toSend,
+            conversationHistory: []
+          }),
+        });
+        const data = await res.json();
+        const reply: string = data?.reply ?? "";
+        
+        // Log debug info
+        console.log('🔍 FULL API RESPONSE (fresh conversation):', data);
+        
+        setMessages((m) => [...m, { role: "assistant", content: reply }]);
+        return;
+      }
+      
       const conversationHistory = messages.map(m => ({ role: m.role, content: m.content }));
       console.log("🔍 Sending conversation history:", conversationHistory);
       
@@ -196,7 +220,10 @@ export default function Chat() {
                   
                   if (data.success) {
                     // Clear conversation context after successful food logging to start fresh
-                    setMessages([{ role: "assistant", content: data.message }]);
+                    const confirmationMessage = { role: "assistant", content: data.message };
+                    setMessages([confirmationMessage]);
+                    // Mark that conversation was cleared
+                    conversationClearedRef.current = true;
                   } else {
                     setMessages((m) => [...m, { role: "user", content: "yes, confirm" }, { role: "assistant", content: "Error logging items. Please try again." }]);
                   }
