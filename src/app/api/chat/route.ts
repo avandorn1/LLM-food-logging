@@ -193,7 +193,11 @@ export async function POST(req: NextRequest) {
       '1cup', '2cup', '1cups', '2cups',
       '1oz', '2oz', '1ounce', '2ounce'
     ];
-    const hasQuantity = quantityKeywords.some(keyword => lowerMessage.includes(keyword));
+    const hasQuantity = quantityKeywords.some(keyword => {
+      // Use word boundaries to avoid false matches like "fish" containing "gram"
+      const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+      return regex.test(lowerMessage);
+    });
     
     // Check if the previous message was asking for clarification
     const previousMessage = conversationHistory[conversationHistory.length - 1];
