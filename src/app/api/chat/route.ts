@@ -806,6 +806,13 @@ CONFIRMATION HANDLING:
 - When needsConfirmation is true, leave reply empty (it will be auto-filled by the system)
 - Otherwise, provide a helpful reply in the "reply" field
 
+QUANTITY CORRECTIONS DURING CONFIRMATION:
+- When the user says "no I had two of those" or similar quantity corrections during confirmation, update the existing item's quantity
+- Do NOT add new items - modify the existing item's quantity
+- Examples: "no I had two of those" → update quantity to 2, "actually I had 3" → update quantity to 3, "make it 2" → update quantity to 2
+- Set action to "log" with the corrected quantity and set needsConfirmation to true to show the updated confirmation
+- Keep the same item name and nutrition data, only change the quantity
+
 RECIPE SUGGESTIONS:
 - When providing recipe ideas, always give different suggestions each time
 - Vary the cooking methods (grilled, baked, sautéed, roasted, slow-cooked, etc.)
