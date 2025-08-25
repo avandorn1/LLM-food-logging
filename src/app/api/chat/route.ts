@@ -1541,6 +1541,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
     };
 
     console.log("DEBUG: Response object being returned:", JSON.stringify(response, null, 2));
+    console.log("DEBUG: Deployment test - this should show in logs");
 
     return NextResponse.json(response);
   } catch (err: unknown) {
