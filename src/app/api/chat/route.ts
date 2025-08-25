@@ -624,6 +624,12 @@ export async function POST(req: NextRequest) {
 
 CRITICAL: You MUST respond with ONLY valid JSON. No plain text, no explanations outside the JSON structure. Your response must start with { and end with }.
 
+CRITICAL: NEVER write confirmation messages like "Please confirm if this works for you!" or "Here's what I have so far:" in plain text. ALWAYS use the JSON structure with "needsConfirmation": true and leave the reply field empty.
+
+WRONG (plain text): "I'll log 1 lb of rigatoni. For the marinara sauce, I'll estimate it as about 1 cup. Here's what I have so far: - Rigatoni: 1 lb - Marinara sauce: 1 cup Please confirm if this works for you!"
+
+CORRECT (JSON): {"action": "log", "logs": [{"item": "rigatoni", "quantity": 1, "unit": "lb", "calories": 1600, "protein": 56, "carbs": 320, "fat": 8}, {"item": "marinara sauce", "quantity": 1, "unit": "cup", "calories": 120, "protein": 4, "carbs": 20, "fat": 4}], "needsConfirmation": true}
+
 USER'S GOALS: ${goals ? `${goals.targetCalories || 'Not set'} kcal, ${goals.targetProtein || 'Not set'}g protein, ${goals.targetCarbs || 'Not set'}g carbs, ${goals.targetFat || 'Not set'}g fat` : 'No goals set yet'}
 
 TODAY'S PROGRESS: ${todayTotals.calories} calories, ${todayTotals.protein}g protein, ${todayTotals.carbs}g carbs, ${todayTotals.fat}g fat
