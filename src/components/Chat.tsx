@@ -192,7 +192,8 @@ export default function Chat() {
                   const data = await res.json();
                   
                   if (data.success) {
-                    setMessages((m) => [...m, { role: "user", content: "yes, confirm" }, { role: "assistant", content: data.message }]);
+                    // Clear conversation context after successful food logging to start fresh
+                    setMessages([{ role: "assistant", content: data.message }]);
                   } else {
                     setMessages((m) => [...m, { role: "user", content: "yes, confirm" }, { role: "assistant", content: "Error logging items. Please try again." }]);
                   }
