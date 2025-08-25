@@ -7,6 +7,7 @@ type PendingAction = {
   action: "log" | "remove";
   logs?: unknown[];
   itemsToRemove?: unknown[];
+  confirmationMessage?: string;
 };
 
 
@@ -136,6 +137,7 @@ export default function Chat() {
           action: data.action === "remove" ? "remove" : "log",
           logs: data.logs,
           itemsToRemove: data.itemsToRemove,
+          confirmationMessage: reply, // Store the detailed confirmation message
         });
       } else if (data.action === "confirm") {
         setPendingAction(null);
@@ -169,7 +171,9 @@ export default function Chat() {
           <div className="flex-1 text-sm">
             {pendingAction.action === "log" && (
               <div>
-                <div className="font-medium">Confirm adding these items?</div>
+                <div className="font-medium whitespace-pre-wrap text-sm">
+                  {pendingAction.confirmationMessage || "Confirm adding these items?"}
+                </div>
               </div>
             )}
             {pendingAction.action === "remove" && "Confirm removing these items?"}
