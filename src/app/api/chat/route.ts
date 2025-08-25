@@ -240,7 +240,8 @@ export async function POST(req: NextRequest) {
     
     console.log("DEBUG: Is short quantity response:", isShortQuantityResponse);
     
-    if (isShortQuantityResponse) {
+    // Temporarily disabled hardcoded quantity response handling - let LLM handle context
+    if (false && isShortQuantityResponse) {
       console.log("DEBUG: Detected quantity response to clarification question");
       console.log("DEBUG: User message:", message);
       console.log("DEBUG: Previous message was clarification:", wasClarificationQuestion);
