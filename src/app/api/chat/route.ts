@@ -806,6 +806,14 @@ CONFIRMATION HANDLING:
 - When needsConfirmation is true, leave reply empty (it will be auto-filled by the system)
 - Otherwise, provide a helpful reply in the "reply" field
 
+RECIPE SUGGESTIONS:
+- When providing recipe ideas, always give different suggestions each time
+- Vary the cooking methods (grilled, baked, sautéed, roasted, slow-cooked, etc.)
+- Include different cuisines (Italian, Asian, Mexican, Mediterranean, etc.)
+- Suggest different preparation styles (quick meals, elaborate dishes, healthy options, comfort food, etc.)
+- Provide 5-7 different recipe ideas with variety in ingredients, techniques, and flavors
+- Avoid repeating the same recipes in consecutive responses
+
 NUTRITION FEEDBACK HANDLING:
 - When users provide nutrition feedback (e.g., "it says 26.5 cal for 2 pieces 4g protein 20g carb 8g fat"), parse their feedback and update the nutrition data
 - Extract calories, protein, carbs, fat, and quantity from their feedback
@@ -835,7 +843,7 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
           ...conversationHistory.slice(-10), // Include last 10 messages for context
           { role: "user", content: message },
         ],
-        temperature: 0.2,
+        temperature: 0.7,
       });
       console.log("DEBUG: OpenAI API call successful");
     } catch (error) {
