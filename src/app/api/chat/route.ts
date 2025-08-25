@@ -622,6 +622,8 @@ export async function POST(req: NextRequest) {
     const client = getOpenAIClient();
     const system = `You are a nutrition logging assistant. Your job is to help users log their food intake accurately.
 
+CRITICAL: You MUST respond with ONLY valid JSON. No plain text, no explanations outside the JSON structure. Your response must start with { and end with }.
+
 USER'S GOALS: ${goals ? `${goals.targetCalories || 'Not set'} kcal, ${goals.targetProtein || 'Not set'}g protein, ${goals.targetCarbs || 'Not set'}g carbs, ${goals.targetFat || 'Not set'}g fat` : 'No goals set yet'}
 
 TODAY'S PROGRESS: ${todayTotals.calories} calories, ${todayTotals.protein}g protein, ${todayTotals.carbs}g carbs, ${todayTotals.fat}g fat
@@ -724,6 +726,11 @@ CRITICAL JSON FORMAT:
 - NEVER return plain text confirmation messages
 - NEVER put confirmation text in the reply field when needsConfirmation is true
 - The system will handle generating confirmation messages automatically
+- CRITICAL: Your response MUST start with { and end with } - no exceptions
+- CRITICAL: Do not include any text before or after the JSON object
+- CRITICAL: If you need to log food, use the exact JSON structure shown in the examples
+- CRITICAL: If you need to ask a question, use {"action": "chat", "reply": "your question"}
+- CRITICAL: If you need to log food with confirmation, use {"action": "log", "logs": [...], "needsConfirmation": true}
 
 QUANTITY CLARIFICATION:
 - Only ask for clarification when NO reasonable assumption can be made about the quantity
