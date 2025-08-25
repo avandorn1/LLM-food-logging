@@ -1540,6 +1540,8 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
       conversationHistoryLength: conversationHistory.length
     };
 
+    console.log("DEBUG: Response object being returned:", JSON.stringify(response, null, 2));
+
     return NextResponse.json(response);
   } catch (err: unknown) {
     console.error("Chat API Error:", err);
