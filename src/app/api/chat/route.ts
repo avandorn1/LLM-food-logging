@@ -1215,6 +1215,18 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
         goals: {},
         itemsToRemove: [],
         needsConfirmation: false,
+        debug: {
+          llmResponse: text,
+          parsedJson: parsed,
+          modelOutputSuccess: false,
+          modelOutputData: "JSON parsing failed - fallback to hardcoded logic",
+          finalReply: "I didn't quite understand that response. Could you rephrase it? For example:\n• \"1 tablespoon\"\n• \"about a cup\"\n• \"half a serving\"\n• \"I don't know, maybe 2 tablespoons\"",
+          action: "chat",
+          needsConfirmation: false,
+          logsLength: 0,
+          originalMessage: message,
+          conversationHistoryLength: conversationHistory.length
+        }
       });
     }
 
