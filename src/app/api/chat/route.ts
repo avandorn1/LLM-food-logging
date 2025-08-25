@@ -55,10 +55,34 @@ function extractFirstJson(text: string): unknown | null {
   const end = text.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) return null;
   const jsonStr = text.slice(start, end + 1);
+  
   try {
     return JSON.parse(jsonStr);
-  } catch {
-    return null;
+  } catch (error) {
+    console.error("Failed to parse JSON:", error);
+    console.error("Original JSON string:", jsonStr);
+    
+    // Try to fix common JSON issues
+    let fixedJson = jsonStr;
+    
+    // Replace single quotes with double quotes
+    fixedJson = fixedJson.replace(/'/g, '"');
+    
+    // Fix unquoted property names (but be careful not to break valid JSON)
+    fixedJson = fixedJson.replace(/(\w+):/g, '"$1":');
+    
+    // Remove any trailing commas
+    fixedJson = fixedJson.replace(/,(\s*[}\]])/g, '$1');
+    
+    try {
+      const parsed = JSON.parse(fixedJson);
+      console.log("Successfully parsed after fixing JSON:", parsed);
+      return parsed;
+    } catch (secondError) {
+      console.error("Still failed to parse after fixing JSON:", secondError);
+      console.error("Fixed JSON string:", fixedJson);
+      return null;
+    }
   }
 }
 
