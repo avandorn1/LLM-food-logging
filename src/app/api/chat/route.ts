@@ -1547,6 +1547,9 @@ Use your nutrition knowledge to provide accurate estimates. If you're unsure abo
 
     console.log("DEBUG: Response object being returned:", JSON.stringify(response, null, 2));
     console.log("DEBUG: Deployment test - this should show in logs");
+    console.log("DEBUG: LLM Response Text:", text);
+    console.log("DEBUG: Model Output Success:", modelOut.success);
+    console.log("DEBUG: Model Output Data:", modelOut.success ? modelOut.data : (modelOut as { error: unknown }).error);
 
     return NextResponse.json(response);
   } catch (err: unknown) {
