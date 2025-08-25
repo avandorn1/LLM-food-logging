@@ -244,8 +244,11 @@ export default function Chat() {
             </button>
             <button
               onClick={() => {
-                setMessages((m) => [...m, { role: "user", content: "no, cancel" }, { role: "assistant", content: "Cancelled." }]);
+                // Clear conversation context after cancelling food logging to start fresh
+                setMessages([{ role: "assistant", content: "Cancelled." }]);
                 setPendingAction(null);
+                // Mark that conversation was cleared
+                conversationClearedRef.current = true;
               }}
               disabled={loading}
               className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
